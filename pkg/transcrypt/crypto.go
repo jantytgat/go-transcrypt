@@ -12,6 +12,9 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+// createCryptoConfig creates a sio.config from the supplied key, cipher and optional salt.
+// It returns an error if either key or cipher is empty.
+// It also returns an error if the supplied salt is less than 12 bytes long.
 func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, error) {
 	if key == "" {
 		return sio.Config{}, errors.New("key is empty")
@@ -29,6 +32,10 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 		}
 	}
 
+	if len(salt) < 12 {
+		return sio.Config{}, fmt.Errorf("salt needs to be at least 12 bytes, got %d", len(salt))
+	}
+
 	// Create encryption key
 	kdf := hkdf.New(sha256.New, []byte(key), salt[:12], nil)
 	var encKey [32]byte
@@ -43,7 +50,7 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 	}, nil
 }
 
-// createSalt creates a random salt for use with the encrypt/decrypt functionality
+// createSalt creates a random salt for use with the encrypt/decrypt functionality.
 func createSalt() ([]byte, error) {
 	var nonce [12]byte
 	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
@@ -53,6 +60,8 @@ func createSalt() ([]byte, error) {
 	return nonce[:], nil
 }
 
+// getKindFromString converts a string to its representative reflect.Kind.
+// It returns a reflect.Invalid by default if the supplied string cannot be found.
 func getKindForString(s string) reflect.Kind {
 	switch s {
 	case "bool":
