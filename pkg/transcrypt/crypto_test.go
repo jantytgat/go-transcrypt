@@ -5,6 +5,78 @@ import (
 	"testing"
 )
 
+func Test_CreateHexKey(t *testing.T) {
+	type args struct {
+		bitSize int
+	}
+	tests := []struct {
+		name    string
+		bitSize int
+		wantErr bool
+	}{
+		{
+			name:    "invalid_size_0",
+			bitSize: 0,
+			wantErr: true,
+		},
+		{
+			name:    "invalid_size_11",
+			bitSize: 11,
+			wantErr: true,
+		},
+		{
+			name:    "valid_size_12",
+			bitSize: 12,
+			wantErr: false,
+		},
+		{
+			name:    "valid_size_256",
+			bitSize: 256,
+			wantErr: false,
+		},
+		{
+			name:    "valid_size_1024",
+			bitSize: 1024,
+			wantErr: false,
+		},
+		{
+			name:    "valid_size_2048",
+			bitSize: 2048,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := CreateHexKey(tt.bitSize)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateHexKey() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
+func Test_CreateSalt(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{
+			name:    "success",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := CreateSalt()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateSalt() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
 func Test_createCryptoConfig(t *testing.T) {
 	type args struct {
 		key    string
@@ -58,27 +130,6 @@ func Test_createCryptoConfig(t *testing.T) {
 			_, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.salt)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createCryptoConfig() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
-func Test_createSalt(t *testing.T) {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "succes",
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := createSalt()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("createSalt() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})

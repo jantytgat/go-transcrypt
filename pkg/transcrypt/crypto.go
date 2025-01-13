@@ -2,7 +2,11 @@ package transcrypt
 
 import (
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +15,38 @@ import (
 	"github.com/minio/sio"
 	"golang.org/x/crypto/hkdf"
 )
+
+// CreateHexKey generates a random key which can be used for encryption.
+// It generates a RSA Private Key with the supplied bitSize, and converts it to a hex-encoded PEM Block.
+func CreateHexKey(bitSize int) (string, error) {
+	if bitSize < 12 {
+		return "", errors.New("bit size must be at least 12")
+	}
+	var err error
+	var privKey *rsa.PrivateKey
+
+	var reader = rand.Reader
+
+	if privKey, err = rsa.GenerateKey(reader, bitSize); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+		})), nil
+}
+
+// CreateSalt creates a random 12-byte salt for use with the encrypt/decrypt functionality.
+func CreateSalt() ([]byte, error) {
+	var nonce [12]byte
+	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+		return nil, fmt.Errorf("failed to read random data for nonce: %w", err)
+	}
+
+	return nonce[:], nil
+}
 
 // createCryptoConfig creates a sio.config from the supplied key, cipher and optional salt.
 // It returns an error if either key or cipher is empty.
@@ -27,7 +63,7 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 	var err error
 	// If salt is nil, create a new salt that can be used for encryption
 	if salt == nil {
-		if salt, err = createSalt(); err != nil {
+		if salt, err = CreateSalt(); err != nil {
 			return sio.Config{}, fmt.Errorf("could not create salt: %w", err)
 		}
 	}
@@ -48,16 +84,6 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 		Key:          encKey[:],
 		Nonce:        (*[12]byte)(salt[:]),
 	}, nil
-}
-
-// createSalt creates a random salt for use with the encrypt/decrypt functionality.
-func createSalt() ([]byte, error) {
-	var nonce [12]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-		return nil, fmt.Errorf("failed to read random data for nonce: %w", err)
-	}
-
-	return nonce[:], nil
 }
 
 // getKindFromString converts a string to its representative reflect.Kind.
