@@ -9,7 +9,7 @@ import (
 func main() {
 	var err error
 	var key string
-	if key, err = transcrypt.CreateHexKey(1024); err != nil {
+	if key, err = transcrypt.CreateHexKey(12); err != nil {
 		panic(err)
 	}
 
