@@ -19,8 +19,8 @@ import (
 // CreateHexKey generates a random key which can be used for encryption.
 // It generates a RSA Private Key with the supplied bitSize, and converts it to a hex-encoded PEM Block.
 func CreateHexKey(bitSize int) (string, error) {
-	if bitSize < 12 {
-		return "", errors.New("bit size must be at least 12")
+	if bitSize < 1024 {
+		return "", errors.New("bit size must be at least 1024")
 	}
 	var err error
 	var privKey *rsa.PrivateKey

@@ -25,14 +25,14 @@ func Test_CreateHexKey(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "valid_size_12",
+			name:    "invalid_size_12",
 			bitSize: 12,
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name:    "valid_size_256",
+			name:    "invalid_size_256",
 			bitSize: 256,
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name:    "valid_size_1024",
