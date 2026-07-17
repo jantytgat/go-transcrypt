@@ -3,7 +3,7 @@ module github.com/jantytgat/go-transcrypt
 go 1.24.0
 
 require (
-	github.com/minio/sio v0.4.2
+	github.com/minio/sio v0.4.3
 	golang.org/x/crypto v0.45.0
 )
 
