@@ -28,7 +28,7 @@ The round-trip flows through four files in `pkg/transcrypt`, split by responsibi
 
 - **`transcrypt.go`** — public `Encrypt`/`Decrypt` entry points. `Encrypt(key, cipherSuite, data)` returns the encoded string; `Decrypt(key, data)` returns `any`.
 - **`crypto.go`** — key generation (`CreateHexKey`) and `createCryptoConfig`, which generates/consumes the nonce, HKDF-derives a 32-byte key, and builds the `sio.Config`. Also holds `getKindForString` (string → `reflect.Kind`).
-- **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs. `GetCipherSuite(string)` parses a name back to the enum but **silently falls back to `CHACHA20_POLY1305`** on any unrecognized string (unlike `getKindForString`, which returns `reflect.Invalid`).
+- **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs. `GetCipherSuite(string) (CipherSuite, error)` parses a name back to the enum and returns an error on any unrecognized string (like `getKindForString`, it does not silently fall back to a default).
 - **`convert.go`** — reflection-based (de)serialization of the payload and the `decodeHexString` splitter that parses the encoded format.
 
 ### Encoded string format
