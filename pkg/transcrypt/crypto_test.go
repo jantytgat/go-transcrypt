@@ -248,8 +248,8 @@ func Test_getKindForString(t *testing.T) {
 			want: reflect.Map,
 		},
 		{
-			name: "pointer",
-			kind: "pointer",
+			name: "ptr",
+			kind: "ptr",
 			want: reflect.Pointer,
 		},
 		{

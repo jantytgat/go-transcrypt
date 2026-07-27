@@ -132,7 +132,7 @@ func getKindForString(s string) reflect.Kind {
 		return reflect.Interface
 	case "map":
 		return reflect.Map
-	case "pointer":
+	case "ptr":
 		return reflect.Pointer
 	case "slice":
 		return reflect.Slice
