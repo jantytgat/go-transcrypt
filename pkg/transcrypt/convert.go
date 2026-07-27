@@ -27,10 +27,21 @@ var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{24}:[0-9a-f
 func convertBytesToValue(d []byte, k reflect.Kind) (reflect.Value, error) {
 	switch k {
 	case reflect.Int:
+		if len(d) != 8 {
+			return reflect.Value{}, fmt.Errorf("cannot decode int: expected 8 bytes, got %d", len(d))
+		}
+		n := int64(binary.BigEndian.Uint64(d))
+		// int is platform-sized; on 32-bit platforms a value that fits int64 may not fit int.
+		if int64(int(n)) != n {
+			return reflect.Value{}, fmt.Errorf("cannot decode int: value %d overflows int on this platform", n)
+		}
 		v := reflect.New(reflect.TypeOf(0))
-		v.Elem().SetInt(int64(binary.BigEndian.Uint64(d)))
+		v.Elem().SetInt(n)
 		return reflect.ValueOf(v.Elem().Interface()), nil
 	case reflect.Uint64:
+		if len(d) != 8 {
+			return reflect.Value{}, fmt.Errorf("cannot decode uint64: expected 8 bytes, got %d", len(d))
+		}
 		v := reflect.New(reflect.TypeOf(uint64(0)))
 		v.Elem().SetUint(binary.BigEndian.Uint64(d))
 		return reflect.ValueOf(v.Elem().Interface()), nil
