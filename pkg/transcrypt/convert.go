@@ -14,11 +14,13 @@ import (
 
 // Defines the default layout of a string representing encrypted data.
 // The string is divided in sections delimited by a colon.
-// 1. Cipher suite
-// 2. Salt
-// 3. Data
-// 4. Original data type
-var regexEncryptedString = regexp.MustCompile(`\d{2}:[\w\d]{24}:[\w\d]*:[\w\d]*`)
+// 1. Cipher suite  - one hex-encoded byte (2 lowercase hex chars, e.g. "0a")
+// 2. Salt/nonce    - 12 hex-encoded bytes (24 lowercase hex chars)
+// 3. Data          - hex-encoded ciphertext (non-empty)
+// 4. Original type - hex-encoded reflect.Kind name (non-empty)
+// The pattern is anchored so the whole string must match, every field must be
+// valid lowercase hex, and the ciphertext/kind fields may not be empty.
+var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{24}:[0-9a-f]+:[0-9a-f]+$`)
 
 // convertBytesToValue converts a byte-array to a reflect.Value.
 // It takes a byte-slice and a reflect.Kind and returns an error if the conversion fails.
@@ -98,7 +100,7 @@ func decodeHexString(key string, data string) ([]byte, reflect.Kind, sio.Config,
 
 	var kind reflect.Kind
 	if kind = getKindForString(string(kindBytes)); kind == reflect.Invalid {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode kind: %w", err)
+		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode kind %q", string(kindBytes))
 	}
 
 	var cryptoConfig sio.Config

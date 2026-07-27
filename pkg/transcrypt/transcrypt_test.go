@@ -1,7 +1,6 @@
 package transcrypt
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -75,11 +74,11 @@ func TestDecrypt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Decrypt(tt.args.key, tt.args.data)
-			if err != nil {
-				if (err != nil) != tt.wantErr {
-					t.Errorf("Decrypt() error = %v, wantErr %v", err, tt.wantErr)
-					return
-				}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Decrypt() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -150,12 +149,11 @@ func TestEncrypt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Encrypt(tt.args.key, tt.args.salt, tt.args.cipherSuite, tt.args.d)
-			if err != nil {
-				if (err != nil) != tt.wantErr {
-					t.Errorf("Encrypt() error = %v, wantErr %v", err, tt.wantErr)
-					return
-				}
-				fmt.Println(err)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Encrypt() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
 				return
 			}
 			if got != tt.want {
