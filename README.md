@@ -1,6 +1,8 @@
 # go-transcrypt
 
 This library encrypts a typed value into a single hex-encoded, colon-delimited string for safe on-disk storage, and decrypts that string back to the original value. It supports the Go scalar types plus `[]byte` (see [Operations](#operations)).
+Structs can be encrypted field by field into a mirror type via the
+`cryptostruct` package (see [Structs](#structs)).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jantytgat/go-transcrypt.svg)](https://pkg.go.dev/github.com/jantytgat/go-transcrypt)
 
@@ -85,9 +87,51 @@ if decryptedString, err = transcrypt.Decrypt(key, encryptedString); err != nil {
 }
 ```
 
+## Structs
+
+The `cryptostruct` package encrypts structs field by field on top of
+`transcrypt`. You define a "plain" struct and an equivalent "encrypted" mirror
+struct; the mirror's field types decide what happens to each field — there are
+no struct tags and no interfaces to implement:
+
+- a mirror field typed `cryptostruct.Ciphertext` is encrypted individually
+  with `transcrypt.Encrypt` (own salt, derived key, and nonce per field; the
+  original type travels inside the authenticated ciphertext);
+- a mirror field with the identical type as the plain field is copied
+  verbatim;
+- mirrored composite types (structs, slices, arrays, maps, pointers) are
+  traversed recursively. Map keys are never encrypted, only map values.
+
+```go
+type Account struct {
+	Password string
+	Enabled  bool
+}
+
+type SecureAccount struct {
+	Password cryptostruct.Ciphertext // encrypted
+	Enabled  bool                    // copied as-is
+}
+
+secure, err := cryptostruct.Encrypt[SecureAccount](key, transcrypt.AES_256_GCM, account)
+restored, err := cryptostruct.Decrypt[Account](key, secure)
+```
+
+Field matching is by name and strict in both directions: an exported field
+present on one side but missing on the other is an error, so data is never
+dropped silently. Unexported fields are ignored (like `encoding/json`). Nil
+pointers, slices, and maps are preserved as nil. `Ciphertext` is a string
+underneath, so encrypted structs marshal naturally to JSON or YAML.
+
 ## Example
 
-An example is available in the [examples](https://github.com/jantytgat/go-transcrypt/tree/main/examples/simple)
-directory. It round-trips a value of every supported type listed under
-[Operations](#operations) and shows both cipher suites (`AES_256_GCM` and
-`CHACHA20_POLY1305`) in action.
+Two examples are available in the [examples](https://github.com/jantytgat/go-transcrypt/tree/main/examples)
+directory:
+
+- [simple](https://github.com/jantytgat/go-transcrypt/tree/main/examples/simple)
+  round-trips a value of every supported type listed under
+  [Operations](#operations) and shows both cipher suites (`AES_256_GCM` and
+  `CHACHA20_POLY1305`) in action.
+- [structs](https://github.com/jantytgat/go-transcrypt/tree/main/examples/structs)
+  encrypts a nested struct (including a slice of structs and a map) into its
+  mirror type and back using the `cryptostruct` package.

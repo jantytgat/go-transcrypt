@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `go-transcrypt` is a small Go library that encrypts arbitrary values into a single hex-encoded, colon-delimited string safe for on-disk storage, and decrypts that string back to the original typed value. Authenticated encryption is delegated to `github.com/minio/sio`; key derivation uses HKDF-SHA256 from `golang.org/x/crypto`.
 
-The entire public API lives in `pkg/transcrypt`. There is no binary — `examples/simple/main.go` is a runnable usage demo, not part of the module's product surface.
+The public API lives in two packages: `pkg/transcrypt` (single values) and `pkg/cryptostruct` (struct-level encryption built on top of it). There is no binary — `examples/simple/main.go` and `examples/structs/main.go` are runnable usage demos, not part of the module's product surface.
 
 ## Commands
 
@@ -34,6 +34,16 @@ The round-trip flows through four files in `pkg/transcrypt`, split by responsibi
 - **`crypto.go`** — key generation (`CreateHexKey`) and `createCryptoConfig`, which generates/consumes the nonce, HKDF-derives a 32-byte key, and builds the `sio.Config`. Also holds `getKindForString` (string → `reflect.Kind`).
 - **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs. `GetCipherSuite(string) (CipherSuite, error)` parses a name back to the enum and returns an error on any unrecognized string (like `getKindForString`, it does not silently fall back to a default).
 - **`convert.go`** — reflection-based (de)serialization of the payload and the `decodeHexString` splitter that parses the encoded format.
+
+### Struct encryption (`pkg/cryptostruct`)
+
+`cryptostruct` maps a "plain" struct onto an "encrypted" mirror struct and back, encrypting fields individually via `transcrypt.Encrypt`. The mirror struct's field types are the single source of truth — there are **no struct tags and no interfaces** (deliberately unlike `corelayer/go-cryptostruct`, which this design replaces):
+
+- mirror field typed `Ciphertext` (`cryptostruct.go`) → encrypted leaf; each field gets its own salt/key/nonce and its type rides inside the AEAD, so no per-struct `CryptoParams` metadata is needed;
+- identical type on both sides → copied verbatim (checked *before* the `Ciphertext` leaf case, so a `Ciphertext` field on both sides copies rather than double-encrypts);
+- matching composite kinds (struct/slice/array/map/pointer) → recursed by the walkers in `encrypt.go`/`decrypt.go`, which mirror each other case for case — a change to one walker almost always needs the same change in the other.
+
+Entry points are generic: `Encrypt[E any](key, suite, plain) (E, error)` and `Decrypt[P any](key, encrypted) (P, error)`; the type parameter names the target struct. Struct fields match by name, strictly in both directions (missing/extra exported fields are errors, never silent drops); unexported fields are ignored; nil pointers/slices/maps are preserved. On decrypt, the kind recovered from the authenticated ciphertext must match the plain field's kind (`decryptLeaf`) — named types of the same kind are converted, cross-kind never is. Errors carry the field path (e.g. `Inners[1].Note`). Anonymous embedding only works when both sides embed a same-named type; map keys are never encrypted.
 
 ### Encoded string format
 
