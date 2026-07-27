@@ -73,10 +73,10 @@ func Test_convertHexStringToValue_Int(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "unsupported_kind_uint64",
+			name: "unsupported_kind_map",
 			args: args{
 				s: hex.EncodeToString(bufWriterInt.Bytes()),
-				k: reflect.Uint64,
+				k: reflect.Map,
 			},
 			want:    reflect.Value{},
 			wantErr: true,

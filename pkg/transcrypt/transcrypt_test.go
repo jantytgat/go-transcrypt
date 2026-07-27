@@ -122,7 +122,7 @@ func TestEncrypt(t *testing.T) {
 			args: args{
 				key:         "key",
 				cipherSuite: AES_256_GCM,
-				d:           3.14,
+				d:           map[string]int{"a": 1},
 			},
 			wantErr: true,
 		},

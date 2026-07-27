@@ -74,8 +74,11 @@ func createCryptoConfig(key string, cipher []byte, nonce []byte) (sio.Config, er
 	}, nil
 }
 
-// getKindFromString converts a string to its representative reflect.Kind.
-// It returns a reflect.Invalid by default if the supplied string cannot be found.
+// getKindForString converts a stored kind name to its reflect.Kind.
+// It recognizes exactly the kinds the converters support, keeping it in sync with
+// convertValueToHexString/convertHexStringToValue; "slice" denotes a []byte
+// payload. Any other name (including reflect.Kind names for unsupported types)
+// returns reflect.Invalid.
 func getKindForString(s string) reflect.Kind {
 	switch s {
 	case "bool":
@@ -100,8 +103,6 @@ func getKindForString(s string) reflect.Kind {
 		return reflect.Uint32
 	case "uint64":
 		return reflect.Uint64
-	case "uintptr":
-		return reflect.Uintptr
 	case "float32":
 		return reflect.Float32
 	case "float64":
@@ -110,26 +111,10 @@ func getKindForString(s string) reflect.Kind {
 		return reflect.Complex64
 	case "complex128":
 		return reflect.Complex128
-	case "array":
-		return reflect.Array
-	case "chan":
-		return reflect.Chan
-	case "func":
-		return reflect.Func
-	case "interface":
-		return reflect.Interface
-	case "map":
-		return reflect.Map
-	case "ptr":
-		return reflect.Pointer
-	case "slice":
-		return reflect.Slice
 	case "string":
 		return reflect.String
-	case "struct":
-		return reflect.Struct
-	case "unsafepointer":
-		return reflect.UnsafePointer
+	case "slice":
+		return reflect.Slice
 	default:
 		return reflect.Invalid
 	}

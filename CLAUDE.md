@@ -39,11 +39,13 @@ The output is four hex-encoded, colon-separated fields, validated on both ends b
 <cipherSuite>:<nonce/salt>:<ciphertext>:<original-kind>
 ```
 
-Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **both** halves: `convertValueToHexString` (encode) and `convertHexStringToValue` (decode), and ensure the kind name round-trips through `getKindForString`.
+Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **three** places: `convertValueToHexString` (encode), `convertHexStringToValue` (decode), and `getKindForString` (kind name → `reflect.Kind`).
 
-### Type support is intentionally narrow — keep the two converters symmetric
+### Keep the three type lists in sync
 
-This is the most important invariant. `Encrypt` serializes `int` and `string` (`convertValueToHexString`), and `Decrypt` deserializes the same set (`convertHexStringToValue`). Both converters own the inner-payload hex themselves — encode hex-encodes the serialized bytes, decode hex-decodes them — so `Decrypt` no longer hex-decodes separately. Keep the two lists in sync when touching type support, or `Decrypt` will fail (or silently mishandle) values `Encrypt` happily produced. Note `getKindForString` still recognizes far more kinds than the converters handle; an unsupported kind decodes to a valid `reflect.Kind` but then fails in `convertHexStringToValue` with `unknown type`.
+This is the most important invariant. Three lists must agree exactly: `convertValueToHexString` (encode), `convertHexStringToValue` (decode), and `getKindForString` (which recognizes only the supported kind names). If they drift, `Decrypt` will fail (or silently mishandle) values `Encrypt` produced.
+
+Supported kinds: `bool`; `int`/`int8`/`int16`/`int32`/`int64`; `uint`/`uint8`/`uint16`/`uint32`/`uint64`; `float32`/`float64`; `complex64`/`complex128`; `string`; and `[]byte` (stored as kind `slice` — the only supported slice element type is `byte`). Signed integers are widened to 8-byte `int64` and unsigned to 8-byte `uint64`, so every integer kind decodes from a fixed 8-byte payload; `int`/`uint` additionally get a 32-bit-platform overflow check. Both converters own the inner-payload hex themselves — encode hex-encodes the serialized bytes, decode hex-decodes them — so `Decrypt` does not hex-decode separately.
 
 ### Nonce (also the HKDF salt)
 

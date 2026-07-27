@@ -171,11 +171,6 @@ func Test_getKindForString(t *testing.T) {
 			want: reflect.Uint64,
 		},
 		{
-			name: "uintptr",
-			kind: "uintptr",
-			want: reflect.Uintptr,
-		},
-		{
 			name: "float32",
 			kind: "float32",
 			want: reflect.Float32,
@@ -196,36 +191,6 @@ func Test_getKindForString(t *testing.T) {
 			want: reflect.Complex128,
 		},
 		{
-			name: "array",
-			kind: "array",
-			want: reflect.Array,
-		},
-		{
-			name: "chan",
-			kind: "chan",
-			want: reflect.Chan,
-		},
-		{
-			name: "func",
-			kind: "func",
-			want: reflect.Func,
-		},
-		{
-			name: "interface",
-			kind: "interface",
-			want: reflect.Interface,
-		},
-		{
-			name: "map",
-			kind: "map",
-			want: reflect.Map,
-		},
-		{
-			name: "ptr",
-			kind: "ptr",
-			want: reflect.Pointer,
-		},
-		{
 			name: "slice",
 			kind: "slice",
 			want: reflect.Slice,
@@ -235,15 +200,32 @@ func Test_getKindForString(t *testing.T) {
 			kind: "string",
 			want: reflect.String,
 		},
+		// Kinds the converters do not support must map to reflect.Invalid,
+		// including the previously dead "unsafepointer" mapping.
 		{
-			name: "struct",
-			kind: "struct",
-			want: reflect.Struct,
+			name: "unsupported_uintptr",
+			kind: "uintptr",
+			want: reflect.Invalid,
 		},
 		{
-			name: "unsafepointer",
+			name: "unsupported_map",
+			kind: "map",
+			want: reflect.Invalid,
+		},
+		{
+			name: "unsupported_struct",
+			kind: "struct",
+			want: reflect.Invalid,
+		},
+		{
+			name: "unsupported_ptr",
+			kind: "ptr",
+			want: reflect.Invalid,
+		},
+		{
+			name: "unsupported_unsafepointer",
 			kind: "unsafepointer",
-			want: reflect.UnsafePointer,
+			want: reflect.Invalid,
 		},
 		{
 			name: "default",

@@ -1,6 +1,6 @@
 # go-transcrypt
 
-This library encrypts a typed value into a single hex-encoded, colon-delimited string for safe on-disk storage, and decrypts that string back to the original value. The supported value types are currently `string` and `int` (see [Operations](#operations)).
+This library encrypts a typed value into a single hex-encoded, colon-delimited string for safe on-disk storage, and decrypts that string back to the original value. It supports the Go scalar types plus `[]byte` (see [Operations](#operations)).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jantytgat/go-transcrypt.svg)](https://pkg.go.dev/github.com/jantytgat/go-transcrypt)
 
@@ -44,10 +44,18 @@ never produces the same result and the `(key, nonce)` pair is never reused.
 
 ## Operations
 
-Currently, the following data types are supported for encryption:
+The following data types are supported for encryption:
 
-- string
-- int
+- `bool`
+- `string`
+- `int`, `int8`, `int16`, `int32`, `int64`
+- `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- `float32`, `float64`
+- `complex64`, `complex128`
+- `[]byte`
+
+Composite and reference types (slices other than `[]byte`, arrays, maps, structs,
+channels, functions, pointers) are not supported and return an error.
 
 ### Encrypt
 

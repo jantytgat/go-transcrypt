@@ -19,9 +19,25 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 		in   any
 	}{
 		{"string", "hello world"},
+		{"bool_true", true},
+		{"bool_false", false},
 		{"int_positive", 123456},
 		{"int_zero", 0},
 		{"int_negative", -987654},
+		{"int8", int8(-12)},
+		{"int16", int16(1234)},
+		{"int32", int32(-70000)},
+		{"int64", int64(9_000_000_000)},
+		{"uint", uint(42)},
+		{"uint8", uint8(255)},
+		{"uint16", uint16(65535)},
+		{"uint32", uint32(4_000_000_000)},
+		{"uint64", uint64(18_000_000_000_000_000_000)},
+		{"float32", float32(3.14159)},
+		{"float64", 2.718281828459045},
+		{"complex64", complex64(complex(1, -2))},
+		{"complex128", complex(3, -4)},
+		{"bytes", []byte{0xde, 0xad, 0xbe, 0xef}},
 	}
 	suites := []struct {
 		name  string
@@ -50,10 +66,19 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 	}
 }
 
-// TestEncryptUnsupportedType asserts that unsupported input types fail cleanly
-// instead of being silently mishandled.
+// TestEncryptUnsupportedType asserts that unsupported input types (composite and
+// reference kinds, including non-byte slices) fail cleanly instead of being
+// silently mishandled.
 func TestEncryptUnsupportedType(t *testing.T) {
-	for _, v := range []any{true, uint64(5), int64(5), 3.14, int32(5)} {
+	ch := make(chan int)
+	n := 0
+	for _, v := range []any{
+		[]int{1, 2, 3},
+		map[string]int{"a": 1},
+		struct{ A int }{A: 1},
+		&n,
+		ch,
+	} {
 		if _, err := Encrypt(testKey, AES_256_GCM, v); err == nil {
 			t.Errorf("Encrypt(%T) expected error, got nil", v)
 		}
