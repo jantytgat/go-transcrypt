@@ -9,15 +9,9 @@ import (
 func main() {
 	var err error
 	var key string
-	if key, err = transcrypt.CreateHexKey(2048); err != nil {
+	if key, err = transcrypt.CreateHexKey(32); err != nil {
 		panic(err)
 	}
-
-	var salt []byte
-	// Uncomment the following lines if you want to use a pre-defined salt
-	// if salt, err = transcrypt.CreateSalt(); err != nil {
-	// 	panic(err)
-	// }
 
 	fmt.Println("Key: ", key)
 	fmt.Println("###############")
@@ -25,7 +19,7 @@ func main() {
 	var inputString = "hello world"
 	fmt.Println("input:", inputString)
 	var encryptedString string
-	if encryptedString, err = transcrypt.Encrypt(key, salt, transcrypt.AES_256_GCM, inputString); err != nil {
+	if encryptedString, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputString); err != nil {
 		panic(err)
 	}
 	fmt.Println("Encrypted:", encryptedString)
@@ -40,7 +34,7 @@ func main() {
 	var inputInt = 123456
 	fmt.Println("input:", inputInt)
 	var encryptedInt string
-	if encryptedInt, err = transcrypt.Encrypt(key, salt, transcrypt.AES_256_GCM, inputInt); err != nil {
+	if encryptedInt, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputInt); err != nil {
 		panic(err)
 	}
 	fmt.Println("Encrypted:", encryptedInt)

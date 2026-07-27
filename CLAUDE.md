@@ -20,15 +20,15 @@ go vet ./...                                       # vet
 go run ./examples/simple                          # run the usage example
 ```
 
-CI runs CodeQL security analysis only (`.github/workflows/codeql.yml`) — there is no lint or test workflow, so run `go test ./...` locally before pushing.
+CI runs `go vet` + `go test -race -cover` on push/PR to `main` (`.github/workflows/test.yml`) and CodeQL security analysis (`.github/workflows/codeql.yml`). Still run `go test ./...` locally before pushing.
 
 ## Architecture
 
 The round-trip flows through four files in `pkg/transcrypt`, split by responsibility:
 
-- **`transcrypt.go`** — public `Encrypt`/`Decrypt` entry points. `Encrypt(key, salt, cipherSuite, data)` returns the encoded string; `Decrypt(key, data)` returns `any`.
-- **`crypto.go`** — key/salt generation (`CreateHexKey`, `CreateSalt`) and `createCryptoConfig`, which HKDF-derives a 32-byte key and builds the `sio.Config`. Also holds `getKindForString` (string → `reflect.Kind`).
-- **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs.
+- **`transcrypt.go`** — public `Encrypt`/`Decrypt` entry points. `Encrypt(key, cipherSuite, data)` returns the encoded string; `Decrypt(key, data)` returns `any`.
+- **`crypto.go`** — key generation (`CreateHexKey`) and `createCryptoConfig`, which generates/consumes the nonce, HKDF-derives a 32-byte key, and builds the `sio.Config`. Also holds `getKindForString` (string → `reflect.Kind`).
+- **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs. `GetCipherSuite(string)` parses a name back to the enum but **silently falls back to `CHACHA20_POLY1305`** on any unrecognized string (unlike `getKindForString`, which returns `reflect.Invalid`).
 - **`convert.go`** — reflection-based (de)serialization of the payload and the `decodeHexString` splitter that parses the encoded format.
 
 ### Encoded string format
@@ -39,16 +39,18 @@ The output is four hex-encoded, colon-separated fields, validated on both ends b
 <cipherSuite>:<nonce/salt>:<ciphertext>:<original-kind>
 ```
 
-Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **both** halves: `convertValueToHexString` (encode) and `convertBytesToValue` (decode), and ensure the kind name round-trips through `getKindForString`.
+Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **three** places: `convertValueToHexString` (encode), `convertHexStringToValue` (decode), and `getKindForString` (kind name → `reflect.Kind`).
 
-### Type support is intentionally narrow — keep the two converters symmetric
+### Keep the three type lists in sync
 
-This is the most important invariant. `Encrypt` only serializes `int` and `string` (`convertValueToHexString`); `Decrypt` only deserializes `int`, `uint64`, and `string` (`convertBytesToValue`). These lists are **not** in sync, and `getKindForString` recognizes far more kinds than either converter handles. When touching type support, change the converters together or `Decrypt` will fail (or silently mishandle) values `Encrypt` happily produced.
+This is the most important invariant. Three lists must agree exactly: `convertValueToHexString` (encode), `convertHexStringToValue` (decode), and `getKindForString` (which recognizes only the supported kind names). If they drift, `Decrypt` will fail (or silently mishandle) values `Encrypt` produced.
 
-### Salt vs. nonce
+Supported kinds: `bool`; `int`/`int8`/`int16`/`int32`/`int64`; `uint`/`uint8`/`uint16`/`uint32`/`uint64`; `float32`/`float64`; `complex64`/`complex128`; `string`; and `[]byte` (stored as kind `slice` — the only supported slice element type is `byte`). Signed integers are widened to 8-byte `int64` and unsigned to 8-byte `uint64`, so every integer kind decodes from a fixed 8-byte payload; `int`/`uint` additionally get a 32-bit-platform overflow check. Both converters own the inner-payload hex themselves — encode hex-encodes the serialized bytes, decode hex-decodes them — so `Decrypt` does not hex-decode separately.
 
-`salt` and the sio `Nonce` are the same 12 bytes: `createCryptoConfig` feeds `salt[:12]` into HKDF *and* casts `salt[:]` to the `*[12]byte` nonce. Salt must be ≥12 bytes (validated in both `Encrypt` and `createCryptoConfig`); anything beyond 12 bytes is ignored. On decrypt, field 2 of the encoded string is this same value.
+### Nonce (also the HKDF salt)
+
+A single 12-byte value serves as both the HKDF salt and the sio `Nonce`: `createCryptoConfig` feeds `nonce[:12]` into HKDF *and* casts it to the `*[12]byte` nonce. `Encrypt` takes no salt/nonce argument — it calls `createCryptoConfig` with a `nil` nonce, which makes it generate a **fresh random 12-byte value per call**, so the `(key, nonce)` pair is never reused (this is the fix for the old salt-reuse vulnerability). Because the value is random per message, the derived key is also fresh per message. On decrypt, field 2 of the encoded string supplies this value back to `createCryptoConfig`.
 
 ### Keys
 
-`CreateHexKey(bitSize)` generates an RSA private key (min 1024 bits), PEM-encodes it, and hex-encodes that PEM — the "key" is just high-entropy string material fed to HKDF, not used for RSA operations. Any non-empty string works as a key; the RSA helper is only a convenience for generating one.
+`CreateHexKey(byteSize)` reads `byteSize` random bytes (min 16) from `crypto/rand` and hex-encodes them — the "key" is just high-entropy string material fed to HKDF. Any non-empty string works as a key; the helper is only a convenience for generating one.

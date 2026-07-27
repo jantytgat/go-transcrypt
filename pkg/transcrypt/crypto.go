@@ -2,11 +2,8 @@ package transcrypt
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -16,42 +13,31 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// CreateHexKey generates a random key which can be used for encryption.
-// It generates a RSA Private Key with the supplied bitSize, and converts it to a hex-encoded PEM Block.
-func CreateHexKey(bitSize int) (string, error) {
-	if bitSize < 1024 {
-		return "", errors.New("bit size must be at least 1024")
-	}
-	var err error
-	var privKey *rsa.PrivateKey
-
-	var reader = rand.Reader
-
-	if privKey, err = rsa.GenerateKey(reader, bitSize); err != nil {
-		return "", err
+// CreateHexKey generates a random hex-encoded key which can be used for encryption.
+// It reads byteSize cryptographically secure random bytes and hex-encodes them.
+// The key is used purely as high-entropy input keying material for HKDF, so byteSize
+// is the number of random bytes and must be at least 16 (128 bits of entropy).
+func CreateHexKey(byteSize int) (string, error) {
+	if byteSize < 16 {
+		return "", errors.New("byte size must be at least 16")
 	}
 
-	return hex.EncodeToString(pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-		})), nil
+	b := make([]byte, byteSize)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return "", fmt.Errorf("failed to read random data for key: %w", err)
+	}
+
+	return hex.EncodeToString(b), nil
 }
 
-// CreateSalt creates a random 12-byte salt for use with the encrypt/decrypt functionality.
-func CreateSalt() ([]byte, error) {
-	var nonce [12]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-		return nil, fmt.Errorf("failed to read random data for nonce: %w", err)
-	}
-
-	return nonce[:], nil
-}
-
-// createCryptoConfig creates a sio.config from the supplied key, cipher and optional salt.
-// It returns an error if either key or cipher is empty.
-// It also returns an error if the supplied salt is less than 12 bytes long.
-func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, error) {
+// createCryptoConfig creates a sio.Config from the supplied key, cipher and nonce.
+// The same 12-byte nonce is used both as the HKDF salt (to derive the encryption
+// key) and as the sio AEAD nonce. If nonce is nil, a fresh random one is generated;
+// this is the encryption path, and generating it per call guarantees the (key,
+// nonce) pair is never reused. On decryption the nonce is passed in from the
+// encoded string. It returns an error if key or cipher is empty, or if a supplied
+// nonce is shorter than 12 bytes.
+func createCryptoConfig(key string, cipher []byte, nonce []byte) (sio.Config, error) {
 	if key == "" {
 		return sio.Config{}, errors.New("key is empty")
 	}
@@ -61,19 +47,21 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 	}
 
 	var err error
-	// If salt is nil, create a new salt that can be used for encryption
-	if salt == nil {
-		if salt, err = CreateSalt(); err != nil {
-			return sio.Config{}, fmt.Errorf("could not create salt: %w", err)
+	// If no nonce is supplied, generate a fresh random one for this encryption.
+	if nonce == nil {
+		var n [12]byte
+		if _, err = io.ReadFull(rand.Reader, n[:]); err != nil {
+			return sio.Config{}, fmt.Errorf("failed to read random data for nonce: %w", err)
 		}
+		nonce = n[:]
 	}
 
-	if len(salt) < 12 {
-		return sio.Config{}, fmt.Errorf("salt needs to be at least 12 bytes, got %d", len(salt))
+	if len(nonce) < 12 {
+		return sio.Config{}, fmt.Errorf("nonce needs to be at least 12 bytes, got %d", len(nonce))
 	}
 
 	// Create encryption key
-	kdf := hkdf.New(sha256.New, []byte(key), salt[:12], nil)
+	kdf := hkdf.New(sha256.New, []byte(key), nonce[:12], nil)
 	var encKey [32]byte
 	if _, err = io.ReadFull(kdf, encKey[:]); err != nil {
 		return sio.Config{}, fmt.Errorf("failed to derive encryption encKey: %w", err)
@@ -82,12 +70,15 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 	return sio.Config{
 		CipherSuites: cipher,
 		Key:          encKey[:],
-		Nonce:        (*[12]byte)(salt[:]),
+		Nonce:        (*[12]byte)(nonce[:]),
 	}, nil
 }
 
-// getKindFromString converts a string to its representative reflect.Kind.
-// It returns a reflect.Invalid by default if the supplied string cannot be found.
+// getKindForString converts a stored kind name to its reflect.Kind.
+// It recognizes exactly the kinds the converters support, keeping it in sync with
+// convertValueToHexString/convertHexStringToValue; "slice" denotes a []byte
+// payload. Any other name (including reflect.Kind names for unsupported types)
+// returns reflect.Invalid.
 func getKindForString(s string) reflect.Kind {
 	switch s {
 	case "bool":
@@ -112,8 +103,6 @@ func getKindForString(s string) reflect.Kind {
 		return reflect.Uint32
 	case "uint64":
 		return reflect.Uint64
-	case "uintptr":
-		return reflect.Uintptr
 	case "float32":
 		return reflect.Float32
 	case "float64":
@@ -122,26 +111,10 @@ func getKindForString(s string) reflect.Kind {
 		return reflect.Complex64
 	case "complex128":
 		return reflect.Complex128
-	case "array":
-		return reflect.Array
-	case "chan":
-		return reflect.Chan
-	case "func":
-		return reflect.Func
-	case "interface":
-		return reflect.Interface
-	case "map":
-		return reflect.Map
-	case "ptr":
-		return reflect.Pointer
-	case "slice":
-		return reflect.Slice
 	case "string":
 		return reflect.String
-	case "struct":
-		return reflect.Struct
-	case "unsafepointer":
-		return reflect.UnsafePointer
+	case "slice":
+		return reflect.Slice
 	default:
 		return reflect.Invalid
 	}

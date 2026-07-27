@@ -91,64 +91,54 @@ func TestDecrypt(t *testing.T) {
 func TestEncrypt(t *testing.T) {
 	type args struct {
 		key         string
-		salt        []byte
 		cipherSuite CipherSuite
 		d           any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    string
 		wantErr bool
 	}{
 		{
 			name: "empty_key",
 			args: args{
 				key:         "",
-				salt:        nil,
 				cipherSuite: AES_256_GCM,
 				d:           nil,
 			},
-			want:    "",
 			wantErr: true,
 		},
 		{
 			name: "empty_data",
 			args: args{
 				key:         "key",
-				salt:        nil,
 				cipherSuite: AES_256_GCM,
 				d:           nil,
 			},
-			want:    "",
 			wantErr: true,
 		},
 		{
-			name: "invalid_salt",
+			name: "unsupported_type",
 			args: args{
 				key:         "key",
-				salt:        []byte("invalid"),
 				cipherSuite: AES_256_GCM,
-				d:           "data",
+				d:           map[string]int{"a": 1},
 			},
-			want:    "",
 			wantErr: true,
 		},
 		{
 			name: "valid",
 			args: args{
 				key:         "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
-				salt:        []byte("saltsaltsalt"),
 				cipherSuite: AES_256_GCM,
 				d:           "hello world",
 			},
-			want:    "00:73616c7473616c7473616c74:20001500f3616c7473616c7473616c74da182aeef9d1060ec5564b974689147f32bf626db98a13a0f4f6adf6df675dd07fa1463e3d1e:737472696e67",
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Encrypt(tt.args.key, tt.args.salt, tt.args.cipherSuite, tt.args.d)
+			got, err := Encrypt(tt.args.key, tt.args.cipherSuite, tt.args.d)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Encrypt() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -156,8 +146,10 @@ func TestEncrypt(t *testing.T) {
 			if tt.wantErr {
 				return
 			}
-			if got != tt.want {
-				t.Errorf("Encrypt() got = %v, want %v", got, tt.want)
+			// The nonce is random per call, so we cannot assert an exact string;
+			// verify the output is well-formed instead.
+			if !regexEncryptedString.MatchString(got) {
+				t.Errorf("Encrypt() produced malformed output: %q", got)
 			}
 		})
 	}

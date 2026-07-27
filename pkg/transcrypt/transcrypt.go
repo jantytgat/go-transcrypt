@@ -38,13 +38,8 @@ func Decrypt(key string, data string) (any, error) {
 		return nil, fmt.Errorf("decrypt failed: %w", err)
 	}
 
-	var decryptedData []byte
-	if decryptedData, err = hex.DecodeString(string(decryptedHexData.Bytes())); err != nil {
-		return nil, fmt.Errorf("decode decrypted hex data failed: %w", err)
-	}
-
 	var outputValue reflect.Value
-	if outputValue, err = convertBytesToValue(decryptedData, kind); err != nil {
+	if outputValue, err = convertHexStringToValue(decryptedHexData.String(), kind); err != nil {
 		return nil, err
 	}
 
@@ -54,19 +49,15 @@ func Decrypt(key string, data string) (any, error) {
 // Encrypt encrypts the supplied data using the supplied secret key and cipher suite.
 // It will return an error if either the key is empty or the data is nil.
 // Additionally, if the necessary cryptographic configuration cannot be created using the supplied cipherSuite, it will return an error.
-// If a salt is provided, it must be at least 12 bytes.
-// If salt is nil, the function will automatically create one on-the-fly.
-func Encrypt(key string, salt []byte, cipherSuite CipherSuite, d any) (string, error) {
+// A fresh random nonce is generated for every call, so encrypting twice never
+// reuses the same (key, nonce) pair.
+func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
 	if key == "" {
 		return "", errors.New("key is empty")
 	}
 
 	if d == nil {
 		return "", errors.New("data is nil")
-	}
-
-	if salt != nil && len(salt) < 12 {
-		return "", fmt.Errorf("salt needs to be at least 12 bytes, got %d", len(salt))
 	}
 
 	var err error
@@ -76,8 +67,9 @@ func Encrypt(key string, salt []byte, cipherSuite CipherSuite, d any) (string, e
 		return "", err
 	}
 
+	// A nil nonce makes createCryptoConfig generate a fresh random one per call.
 	var cryptoConfig sio.Config
-	if cryptoConfig, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, salt); err != nil {
+	if cryptoConfig, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil); err != nil {
 		return "", err
 	}
 

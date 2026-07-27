@@ -6,72 +6,45 @@ import (
 )
 
 func Test_CreateHexKey(t *testing.T) {
-	type args struct {
-		bitSize int
-	}
 	tests := []struct {
-		name    string
-		bitSize int
-		wantErr bool
+		name     string
+		byteSize int
+		wantErr  bool
 	}{
 		{
-			name:    "invalid_size_0",
-			bitSize: 0,
-			wantErr: true,
+			name:     "invalid_size_0",
+			byteSize: 0,
+			wantErr:  true,
 		},
 		{
-			name:    "invalid_size_11",
-			bitSize: 11,
-			wantErr: true,
+			name:     "invalid_size_15",
+			byteSize: 15,
+			wantErr:  true,
 		},
 		{
-			name:    "invalid_size_12",
-			bitSize: 12,
-			wantErr: true,
+			name:     "valid_size_16",
+			byteSize: 16,
+			wantErr:  false,
 		},
 		{
-			name:    "invalid_size_256",
-			bitSize: 256,
-			wantErr: true,
-		},
-		{
-			name:    "valid_size_1024",
-			bitSize: 1024,
-			wantErr: false,
-		},
-		{
-			name:    "valid_size_2048",
-			bitSize: 2048,
-			wantErr: false,
+			name:     "valid_size_32",
+			byteSize: 32,
+			wantErr:  false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := CreateHexKey(tt.bitSize)
+			key, err := CreateHexKey(tt.byteSize)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateHexKey() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-		})
-	}
-}
-
-func Test_CreateSalt(t *testing.T) {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "success",
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := CreateSalt()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateSalt() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
 				return
+			}
+			// hex-encoding doubles the byte count.
+			if len(key) != tt.byteSize*2 {
+				t.Errorf("CreateHexKey() len = %d, want %d", len(key), tt.byteSize*2)
 			}
 		})
 	}
@@ -81,7 +54,7 @@ func Test_createCryptoConfig(t *testing.T) {
 	type args struct {
 		key    string
 		cipher []byte
-		salt   []byte
+		nonce  []byte
 	}
 	tests := []struct {
 		name    string
@@ -93,7 +66,7 @@ func Test_createCryptoConfig(t *testing.T) {
 			args: args{
 				key:    "test",
 				cipher: nil,
-				salt:   nil,
+				nonce:  nil,
 			},
 			wantErr: true,
 		},
@@ -102,32 +75,32 @@ func Test_createCryptoConfig(t *testing.T) {
 			args: args{
 				key:    "test",
 				cipher: nil,
-				salt:   nil,
+				nonce:  nil,
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid_salt",
+			name: "invalid_nonce",
 			args: args{
 				key:    "test",
 				cipher: []byte("cipher"),
-				salt:   []byte("salt"),
+				nonce:  []byte("short"),
 			},
 			wantErr: true,
 		},
 		{
-			name: "valid",
+			name: "valid_generated_nonce",
 			args: args{
 				key:    "test",
 				cipher: []byte("cipher"),
-				salt:   nil,
+				nonce:  nil,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.salt)
+			_, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.nonce)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createCryptoConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -198,11 +171,6 @@ func Test_getKindForString(t *testing.T) {
 			want: reflect.Uint64,
 		},
 		{
-			name: "uintptr",
-			kind: "uintptr",
-			want: reflect.Uintptr,
-		},
-		{
 			name: "float32",
 			kind: "float32",
 			want: reflect.Float32,
@@ -223,36 +191,6 @@ func Test_getKindForString(t *testing.T) {
 			want: reflect.Complex128,
 		},
 		{
-			name: "array",
-			kind: "array",
-			want: reflect.Array,
-		},
-		{
-			name: "chan",
-			kind: "chan",
-			want: reflect.Chan,
-		},
-		{
-			name: "func",
-			kind: "func",
-			want: reflect.Func,
-		},
-		{
-			name: "interface",
-			kind: "interface",
-			want: reflect.Interface,
-		},
-		{
-			name: "map",
-			kind: "map",
-			want: reflect.Map,
-		},
-		{
-			name: "ptr",
-			kind: "ptr",
-			want: reflect.Pointer,
-		},
-		{
 			name: "slice",
 			kind: "slice",
 			want: reflect.Slice,
@@ -262,15 +200,32 @@ func Test_getKindForString(t *testing.T) {
 			kind: "string",
 			want: reflect.String,
 		},
+		// Kinds the converters do not support must map to reflect.Invalid,
+		// including the previously dead "unsafepointer" mapping.
 		{
-			name: "struct",
-			kind: "struct",
-			want: reflect.Struct,
+			name: "unsupported_uintptr",
+			kind: "uintptr",
+			want: reflect.Invalid,
 		},
 		{
-			name: "unsafepointer",
+			name: "unsupported_map",
+			kind: "map",
+			want: reflect.Invalid,
+		},
+		{
+			name: "unsupported_struct",
+			kind: "struct",
+			want: reflect.Invalid,
+		},
+		{
+			name: "unsupported_ptr",
+			kind: "ptr",
+			want: reflect.Invalid,
+		},
+		{
+			name: "unsupported_unsafepointer",
 			kind: "unsafepointer",
-			want: reflect.UnsafePointer,
+			want: reflect.Invalid,
 		},
 		{
 			name: "default",

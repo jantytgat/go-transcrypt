@@ -1,6 +1,6 @@
 # go-transcrypt
 
-This library enables the encryption/decryption of arbitrary data into a hex-encoded string for safe on-disk storage.
+This library encrypts a typed value into a single hex-encoded, colon-delimited string for safe on-disk storage, and decrypts that string back to the original value. It supports the Go scalar types plus `[]byte` (see [Operations](#operations)).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jantytgat/go-transcrypt.svg)](https://pkg.go.dev/github.com/jantytgat/go-transcrypt)
 
@@ -16,63 +16,65 @@ go get github.com/jantytgat/go-transcrypt
 
 ### Import
 
-Next, you can manually add the import statement to your ```.go```-file, or have it added automatically when using it.
+Next, you can manually add the import statement to your `.go` file, or have it added automatically when using it.
 
-```text
-import github.com/jantytgat/go-transcrypt
+```go
+import "github.com/jantytgat/go-transcrypt"
 ```
 
 ### Encryption key
 
-The encryption key is a string provide to encrypt the data with.
-A function ```CreateHexKey(bitSize int)``` is available to create a random key based on an RSA Private Key, and returns
-it as a hex-encoded string.
+The encryption key is a string used to encrypt the data with.
+A function `CreateHexKey(byteSize int)` is available to create a random key from `byteSize`
+cryptographically secure random bytes (minimum 16), returned as a hex-encoded string.
 
 ```go
 var err error
 var key string
-if key, err = transcrypt.CreateHexKey(2048); err != nil {
-panic(err)
+if key, err = transcrypt.CreateHexKey(32); err != nil {
+	panic(err)
 }
 ```
 
-### Salt
+### Nonce
 
-A salt is also required for proper encryption.
-It is possible to either generate a new salt for every call, by leaving the salt to ```nil``` when calling the ``
-Encrypt``` function.
-If you want to use a specific salt, you can either provide it manually (at least 12 bytes) or generate one.
-
-```go
-var salt []byte
-if salt, err = transcrypt.CreateSalt(); err != nil {
-panic(err)
-}
-```
+No salt or nonce needs to be supplied. `Encrypt` generates a fresh random nonce
+for every call and stores it in the output, so encrypting the same value twice
+never produces the same result and the `(key, nonce)` pair is never reused.
 
 ## Operations
 
-Currently, the following data types are supported for encryption:
+The following data types are supported for encryption:
 
-- string
-- int
+- `bool`
+- `string`
+- `int`, `int8`, `int16`, `int32`, `int64`
+- `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- `float32`, `float64`
+- `complex64`, `complex128`
+- `[]byte`
+
+Composite and reference types (slices other than `[]byte`, arrays, maps, structs,
+channels, functions, pointers) are not supported and return an error.
 
 ### Encrypt
 
 ```go
 var inputString = "hello world"
 var encryptedString string
-if encryptedString, err = transcrypt.Encrypt(key, salt, transcrypt.AES_256_GCM, inputString); err != nil {
-panic(err)
+if encryptedString, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputString); err != nil {
+	panic(err)
 }
 ```
 
 ### Decrypt
 
+`Decrypt` returns the value as `any`; type-assert it back to the original type.
+
 ```go
 var decryptedString any
 if decryptedString, err = transcrypt.Decrypt(key, encryptedString); err != nil {
-panic(err)
+	panic(err)
 }
 ```
 
