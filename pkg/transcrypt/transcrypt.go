@@ -71,6 +71,10 @@ func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
 		return "", errors.New("data is nil")
 	}
 
+	if !cipherSuite.isValid() {
+		return "", fmt.Errorf("unknown cipher suite: %d", cipherSuite)
+	}
+
 	var err error
 	var hexPayload string
 	// Convert input data to reflect.Value before serialization

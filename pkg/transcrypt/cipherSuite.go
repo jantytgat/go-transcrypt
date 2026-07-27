@@ -11,6 +11,18 @@ const (
 // It is based on the types available in github.com/minio/sio .
 type CipherSuite byte
 
+// isValid reports whether c is one of the known cipher suites. It guards against
+// callers passing an out-of-range value (e.g. CipherSuite(99)), which would
+// otherwise only fail deep inside sio with an opaque error.
+func (c CipherSuite) isValid() bool {
+	switch c {
+	case AES_256_GCM, CHACHA20_POLY1305:
+		return true
+	default:
+		return false
+	}
+}
+
 // GetCipherSuite converts a string into its respective CipherSuite.
 // It returns an error if the string does not name a known cipher suite, rather
 // than silently falling back to a default, so a caller-supplied typo cannot

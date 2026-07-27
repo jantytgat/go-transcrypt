@@ -127,6 +127,15 @@ func TestEncrypt(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "unknown_cipher_suite",
+			args: args{
+				key:         "key",
+				cipherSuite: CipherSuite(99),
+				d:           "hello world",
+			},
+			wantErr: true,
+		},
+		{
 			name: "valid",
 			args: args{
 				key:         "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
