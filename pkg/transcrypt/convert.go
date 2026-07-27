@@ -16,13 +16,14 @@ import (
 // Defines the default layout of a string representing encrypted data.
 // The string is divided in sections delimited by a colon.
 // 1. Cipher suite  - one hex-encoded byte (2 lowercase hex chars, e.g. "0a")
-// 2. Salt/nonce    - 12 hex-encoded bytes (24 lowercase hex chars)
+// 2. Salt          - 32 hex-encoded bytes (64 lowercase hex chars); the HKDF salt
+//                    from which both the encryption key and the AEAD nonce derive
 // 3. Data          - hex-encoded ciphertext (non-empty)
 // The pattern is anchored so the whole string must match, every field must be
 // valid lowercase hex, and the ciphertext field may not be empty. The original
 // type is no longer a separate field: it is carried inside the authenticated
 // ciphertext (see encodeInnerPayload) so it cannot be tampered with undetected.
-var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{24}:[0-9a-f]+$`)
+var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{64}:[0-9a-f]+$`)
 
 // encodeInnerPayload frames the type tag together with the hex-encoded value so
 // that both are encrypted as a single unit. The layout is "<kind>:<hexPayload>"
@@ -229,9 +230,9 @@ func decodeHexString(key string, data string) ([]byte, sio.Config, error) {
 		return nil, sio.Config{}, fmt.Errorf("cannot decode ciphersuite: %w", err)
 	}
 
-	var nonce []byte
-	if nonce, err = hex.DecodeString(split[1]); err != nil {
-		return nil, sio.Config{}, fmt.Errorf("cannot decode nonce: %w", err)
+	var salt []byte
+	if salt, err = hex.DecodeString(split[1]); err != nil {
+		return nil, sio.Config{}, fmt.Errorf("cannot decode salt: %w", err)
 	}
 
 	var encryptedBytes []byte
@@ -240,7 +241,7 @@ func decodeHexString(key string, data string) ([]byte, sio.Config, error) {
 	}
 
 	var cryptoConfig sio.Config
-	if cryptoConfig, err = createCryptoConfig(key, cipherSuiteBytes, nonce); err != nil {
+	if cryptoConfig, _, err = createCryptoConfig(key, cipherSuiteBytes, salt); err != nil {
 		return nil, sio.Config{}, fmt.Errorf("cannot create crypto config: %w", err)
 	}
 

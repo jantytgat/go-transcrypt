@@ -36,7 +36,7 @@ The round-trip flows through four files in `pkg/transcrypt`, split by responsibi
 The output is three hex-encoded, colon-separated fields, validated on both ends by `regexEncryptedString` (`convert.go`):
 
 ```
-<cipherSuite>:<nonce/salt>:<ciphertext>
+<cipherSuite>:<salt>:<ciphertext>
 ```
 
 The original type is **not** an outer field. `Encrypt` frames it together with the value as `<kind>:<hexPayload>` (see `encodeInnerPayload`) and encrypts that whole string, so the type tag is covered by the AEAD. `Decrypt` recovers it from the decrypted plaintext via `decodeInnerPayload`. This is deliberate: an earlier format kept the kind as a fourth *plaintext* field, which let an attacker relabel a stored value as a different same-width type (e.g. `int64`↔`float64`, both 8 bytes) without failing decryption. Keeping the kind inside the ciphertext makes any such tampering fail AEAD verification. Only `<cipherSuite>` remains outside the ciphertext (it must be readable to pick the cipher); tampering it merely breaks decryption, it cannot cause type confusion.
@@ -49,9 +49,11 @@ This is the most important invariant. Three lists must agree exactly: `convertVa
 
 Supported kinds: `bool`; `int`/`int8`/`int16`/`int32`/`int64`; `uint`/`uint8`/`uint16`/`uint32`/`uint64`; `float32`/`float64`; `complex64`/`complex128`; `string`; and `[]byte` (stored as kind `slice` — the only supported slice element type is `byte`). Signed integers are widened to 8-byte `int64` and unsigned to 8-byte `uint64`, so every integer kind decodes from a fixed 8-byte payload; `int`/`uint` additionally get a 32-bit-platform overflow check. Both converters own the inner-payload hex themselves — encode hex-encodes the serialized bytes, decode hex-decodes them — so `Decrypt` does not hex-decode separately.
 
-### Nonce (also the HKDF salt)
+### Salt (nonce is derived from it)
 
-A single 12-byte value serves as both the HKDF salt and the sio `Nonce`: `createCryptoConfig` feeds `nonce[:12]` into HKDF *and* casts it to the `*[12]byte` nonce. `Encrypt` takes no salt/nonce argument — it calls `createCryptoConfig` with a `nil` nonce, which makes it generate a **fresh random 12-byte value per call**, so the `(key, nonce)` pair is never reused (this is the fix for the old salt-reuse vulnerability). Because the value is random per message, the derived key is also fresh per message. On decrypt, field 2 of the encoded string supplies this value back to `createCryptoConfig`.
+Field 2 of the encoded string is a **256-bit (32-byte) random HKDF salt**, generated fresh per `Encrypt` call. `createCryptoConfig` runs HKDF-SHA256 over `(key, salt)` and reads 44 bytes from the stream: the first 32 are the encryption key, the next 12 are the sio AEAD nonce. `Encrypt` passes a `nil` salt so one is generated and returned for storage; on decrypt, field 2 supplies the salt back and both key and nonce are re-derived from it.
+
+Deriving both from a 256-bit salt is deliberate. An earlier design used a single random 12-byte value as *both* the HKDF salt and the AEAD nonce, so the derived key and the nonce shared one 96-bit source: a nonce collision (birthday bound ~2^48 messages) meant simultaneous key **and** nonce reuse — catastrophic for AEAD. With a 256-bit salt the derived key is unique per message to a ~2^128 bound, so the `(key, nonce)` pair can never repeat even though the nonce itself is only 96 bits. This raises the safe-message ceiling from ~2^48 to ~2^128.
 
 ### Keys
 

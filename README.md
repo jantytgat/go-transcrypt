@@ -38,11 +38,13 @@ if key, err = transcrypt.CreateHexKey(32); err != nil {
 }
 ```
 
-### Nonce
+### Salt and nonce
 
-No salt or nonce needs to be supplied. `Encrypt` generates a fresh random nonce
-for every call and stores it in the output, so encrypting the same value twice
-never produces the same result and the `(key, nonce)` pair is never reused.
+No salt or nonce needs to be supplied. `Encrypt` generates a fresh random 256-bit
+salt for every call and stores it in the output; both the encryption key and the
+AEAD nonce are derived from that salt via HKDF. Encrypting the same value twice
+never produces the same result, and because the key is derived from a 256-bit salt
+it is unique per message, so the `(key, nonce)` pair is never reused.
 
 ## Operations
 

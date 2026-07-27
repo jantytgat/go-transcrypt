@@ -86,9 +86,11 @@ func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
 	// unit; this keeps the type authenticated by the AEAD and immune to tampering.
 	plaintext := encodeInnerPayload(reflect.TypeOf(d).Kind().String(), hexPayload)
 
-	// A nil nonce makes createCryptoConfig generate a fresh random one per call.
+	// A nil salt makes createCryptoConfig generate a fresh random one per call and
+	// return it so it can be stored; the AEAD nonce is derived from it.
 	var cryptoConfig sio.Config
-	if cryptoConfig, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil); err != nil {
+	var salt []byte
+	if cryptoConfig, salt, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil); err != nil {
 		return "", err
 	}
 
@@ -97,12 +99,12 @@ func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
 		return "", err
 	}
 
-	// Encode all details in hex before joining together. The type tag is no longer
-	// a separate field: it lives inside the ciphertext above.
+	// Encode all details in hex before joining together. Field 2 is the HKDF salt
+	// (the nonce is derived from it); the type tag lives inside the ciphertext.
 	encryptedString := strings.Join(
 		[]string{
 			hex.EncodeToString([]byte{byte(cipherSuite)}),
-			hex.EncodeToString(cryptoConfig.Nonce[:]),
+			hex.EncodeToString(salt),
 			hex.EncodeToString(encryptedData.Bytes()),
 		}, ":",
 	)

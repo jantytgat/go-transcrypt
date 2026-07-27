@@ -54,7 +54,7 @@ func Test_createCryptoConfig(t *testing.T) {
 	type args struct {
 		key    string
 		cipher []byte
-		nonce  []byte
+		salt   []byte
 	}
 	tests := []struct {
 		name    string
@@ -64,9 +64,9 @@ func Test_createCryptoConfig(t *testing.T) {
 		{
 			name: "empty_key",
 			args: args{
-				key:    "test",
-				cipher: nil,
-				nonce:  nil,
+				key:    "",
+				cipher: []byte("cipher"),
+				salt:   nil,
 			},
 			wantErr: true,
 		},
@@ -75,35 +75,45 @@ func Test_createCryptoConfig(t *testing.T) {
 			args: args{
 				key:    "test",
 				cipher: nil,
-				nonce:  nil,
+				salt:   nil,
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid_nonce",
+			name: "short_salt",
 			args: args{
 				key:    "test",
 				cipher: []byte("cipher"),
-				nonce:  []byte("short"),
+				salt:   []byte("short"),
 			},
 			wantErr: true,
 		},
 		{
-			name: "valid_generated_nonce",
+			name: "valid_generated_salt",
 			args: args{
 				key:    "test",
 				cipher: []byte("cipher"),
-				nonce:  nil,
+				salt:   nil,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.nonce)
+			cfg, salt, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.salt)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createCryptoConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if tt.wantErr {
+				return
+			}
+			// A generated salt must be saltLength bytes and the config populated.
+			if len(salt) != saltLength {
+				t.Errorf("createCryptoConfig() salt len = %d, want %d", len(salt), saltLength)
+			}
+			if len(cfg.Key) != 32 || cfg.Nonce == nil {
+				t.Errorf("createCryptoConfig() config not populated: keyLen=%d nonce=%v", len(cfg.Key), cfg.Nonce)
 			}
 		})
 	}

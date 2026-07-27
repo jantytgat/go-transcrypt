@@ -185,13 +185,13 @@ func Test_decodeHexString(t *testing.T) {
 			name: "invalid_value_ciphersuite",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "__:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
+				data: "__:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
 			wantErr:  true,
 		},
 		{
-			name: "invalid_value_nonce",
+			name: "invalid_value_salt",
 			args: args{
 				key:  string(decodedHexKey),
 				data: "00:__:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
@@ -203,7 +203,7 @@ func Test_decodeHexString(t *testing.T) {
 			name: "invalid_value_data",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "00:68e191dfc1f3180904d19a58:__",
+				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:__",
 			},
 			wantData: nil,
 			wantErr:  true,
@@ -213,17 +213,17 @@ func Test_decodeHexString(t *testing.T) {
 			args: args{
 				key: string(decodedHexKey),
 				// Cipher-suite field must be exactly two hex chars; one char fails the format regex.
-				data: "0:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
+				data: "0:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
 			wantErr:  true,
 		},
 		{
-			name: "invalid_nonce",
+			name: "invalid_salt",
 			args: args{
 				key: string(decodedHexKey),
-				// Nonce/salt field must be exactly 24 hex chars (12 bytes); 22 chars fails the format regex.
-				data: "00:dddddddddddddddddddddd:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
+				// Salt field must be exactly 64 hex chars (32 bytes); 66 chars fails the format regex.
+				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
 			wantErr:  true,
@@ -233,7 +233,7 @@ func Test_decodeHexString(t *testing.T) {
 			args: args{
 				key: string(decodedHexKey),
 				// Ciphertext field passes the format regex but is odd-length hex, so hex decoding fails.
-				data: "00:68e191dfc1f3180904d19a58:abc",
+				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:abc",
 			},
 			wantData: nil,
 			wantErr:  true,
@@ -242,7 +242,7 @@ func Test_decodeHexString(t *testing.T) {
 			name: "valid",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "00:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
+				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
 			wantErr:  false,
