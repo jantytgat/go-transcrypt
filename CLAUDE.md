@@ -20,7 +20,7 @@ go vet ./...                                       # vet
 go run ./examples/simple                          # run the usage example
 ```
 
-CI runs CodeQL security analysis only (`.github/workflows/codeql.yml`) — there is no lint or test workflow, so run `go test ./...` locally before pushing.
+CI runs `go vet` + `go test -race -cover` on push/PR to `main` (`.github/workflows/test.yml`) and CodeQL security analysis (`.github/workflows/codeql.yml`). Still run `go test ./...` locally before pushing.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ The round-trip flows through four files in `pkg/transcrypt`, split by responsibi
 
 - **`transcrypt.go`** — public `Encrypt`/`Decrypt` entry points. `Encrypt(key, salt, cipherSuite, data)` returns the encoded string; `Decrypt(key, data)` returns `any`.
 - **`crypto.go`** — key/salt generation (`CreateHexKey`, `CreateSalt`) and `createCryptoConfig`, which HKDF-derives a 32-byte key and builds the `sio.Config`. Also holds `getKindForString` (string → `reflect.Kind`).
-- **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs.
+- **`cipherSuite.go`** — `CipherSuite` is a `byte` enum (`AES_256_GCM`, `CHACHA20_POLY1305`) mapping directly onto sio's cipher IDs. `GetCipherSuite(string)` parses a name back to the enum but **silently falls back to `CHACHA20_POLY1305`** on any unrecognized string (unlike `getKindForString`, which returns `reflect.Invalid`).
 - **`convert.go`** — reflection-based (de)serialization of the payload and the `decodeHexString` splitter that parses the encoded format.
 
 ### Encoded string format
