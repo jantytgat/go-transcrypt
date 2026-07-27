@@ -61,6 +61,9 @@ The following data types are supported for encryption:
 Composite and reference types (slices other than `[]byte`, arrays, maps, structs,
 channels, functions, pointers) are not supported and return an error.
 
+A nil `[]byte` decrypts back to an empty, non-nil `[]byte`: the encoded format does
+not distinguish the two, so test for `len(b) == 0` rather than `b == nil`.
+
 ### Encrypt
 
 ```go

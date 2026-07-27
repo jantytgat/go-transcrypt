@@ -195,6 +195,8 @@ func convertValueToHexString(v reflect.Value) (string, error) {
 		if v.Type().Elem().Kind() != reflect.Uint8 {
 			return "", fmt.Errorf("unknown type %v", v.Type())
 		}
+		// The format does not distinguish a nil []byte from an empty one: both
+		// encode to an empty payload and decode back to an empty, non-nil []byte.
 		return hex.EncodeToString(v.Bytes()), nil
 	default:
 		return "", fmt.Errorf("unknown type %v", v.Kind())

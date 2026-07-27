@@ -168,6 +168,31 @@ func TestEncryptedFormatHasThreeFields(t *testing.T) {
 	}
 }
 
+// TestEncryptNilByteSliceRoundTripsToEmpty pins the documented behavior that a
+// nil []byte decrypts back to an empty, non-nil []byte. The encoded format does
+// not distinguish nil from empty, and an empty slice is the canonical form; a
+// caller must treat len == 0 rather than == nil as "no bytes".
+func TestEncryptNilByteSliceRoundTripsToEmpty(t *testing.T) {
+	encrypted, err := Encrypt(testKey, AES_256_GCM, []byte(nil))
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
+	got, err := Decrypt(testKey, encrypted)
+	if err != nil {
+		t.Fatalf("Decrypt() error = %v", err)
+	}
+	b, ok := got.([]byte)
+	if !ok {
+		t.Fatalf("Decrypt() returned %T, want []byte", got)
+	}
+	if b == nil {
+		t.Error("Decrypt() returned a nil []byte, want empty non-nil")
+	}
+	if len(b) != 0 {
+		t.Errorf("Decrypt() returned %d bytes, want 0", len(b))
+	}
+}
+
 // TestConvertHexStringToValue_ShortBuffer verifies the int decode path returns
 // an error rather than panicking on undersized input ("0102" decodes to 2 bytes).
 func TestConvertHexStringToValue_ShortBuffer(t *testing.T) {
