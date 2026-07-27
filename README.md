@@ -88,4 +88,6 @@ if decryptedString, err = transcrypt.Decrypt(key, encryptedString); err != nil {
 ## Example
 
 An example is available in the [examples](https://github.com/jantytgat/go-transcrypt/tree/main/examples/simple)
-directory.
+directory. It round-trips a value of every supported type listed under
+[Operations](#operations) and shows both cipher suites (`AES_256_GCM` and
+`CHACHA20_POLY1305`) in action.
