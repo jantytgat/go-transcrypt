@@ -25,13 +25,13 @@ import "github.com/jantytgat/go-transcrypt"
 ### Encryption key
 
 The encryption key is a string used to encrypt the data with.
-A function `CreateHexKey(bitSize int)` is available to create a random key based on an RSA private key, returned
-as a hex-encoded string.
+A function `CreateHexKey(byteSize int)` is available to create a random key from `byteSize`
+cryptographically secure random bytes (minimum 16), returned as a hex-encoded string.
 
 ```go
 var err error
 var key string
-if key, err = transcrypt.CreateHexKey(2048); err != nil {
+if key, err = transcrypt.CreateHexKey(32); err != nil {
 	panic(err)
 }
 ```

@@ -6,51 +6,45 @@ import (
 )
 
 func Test_CreateHexKey(t *testing.T) {
-	type args struct {
-		bitSize int
-	}
 	tests := []struct {
-		name    string
-		bitSize int
-		wantErr bool
+		name     string
+		byteSize int
+		wantErr  bool
 	}{
 		{
-			name:    "invalid_size_0",
-			bitSize: 0,
-			wantErr: true,
+			name:     "invalid_size_0",
+			byteSize: 0,
+			wantErr:  true,
 		},
 		{
-			name:    "invalid_size_11",
-			bitSize: 11,
-			wantErr: true,
+			name:     "invalid_size_15",
+			byteSize: 15,
+			wantErr:  true,
 		},
 		{
-			name:    "invalid_size_12",
-			bitSize: 12,
-			wantErr: true,
+			name:     "valid_size_16",
+			byteSize: 16,
+			wantErr:  false,
 		},
 		{
-			name:    "invalid_size_256",
-			bitSize: 256,
-			wantErr: true,
-		},
-		{
-			name:    "valid_size_1024",
-			bitSize: 1024,
-			wantErr: false,
-		},
-		{
-			name:    "valid_size_2048",
-			bitSize: 2048,
-			wantErr: false,
+			name:     "valid_size_32",
+			byteSize: 32,
+			wantErr:  false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := CreateHexKey(tt.bitSize)
+			key, err := CreateHexKey(tt.byteSize)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateHexKey() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if tt.wantErr {
+				return
+			}
+			// hex-encoding doubles the byte count.
+			if len(key) != tt.byteSize*2 {
+				t.Errorf("CreateHexKey() len = %d, want %d", len(key), tt.byteSize*2)
 			}
 		})
 	}

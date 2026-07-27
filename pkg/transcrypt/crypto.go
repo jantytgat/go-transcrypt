@@ -2,11 +2,8 @@ package transcrypt
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -16,26 +13,21 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// CreateHexKey generates a random key which can be used for encryption.
-// It generates a RSA Private Key with the supplied bitSize, and converts it to a hex-encoded PEM Block.
-func CreateHexKey(bitSize int) (string, error) {
-	if bitSize < 1024 {
-		return "", errors.New("bit size must be at least 1024")
-	}
-	var err error
-	var privKey *rsa.PrivateKey
-
-	var reader = rand.Reader
-
-	if privKey, err = rsa.GenerateKey(reader, bitSize); err != nil {
-		return "", err
+// CreateHexKey generates a random hex-encoded key which can be used for encryption.
+// It reads byteSize cryptographically secure random bytes and hex-encodes them.
+// The key is used purely as high-entropy input keying material for HKDF, so byteSize
+// is the number of random bytes and must be at least 16 (128 bits of entropy).
+func CreateHexKey(byteSize int) (string, error) {
+	if byteSize < 16 {
+		return "", errors.New("byte size must be at least 16")
 	}
 
-	return hex.EncodeToString(pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-		})), nil
+	b := make([]byte, byteSize)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return "", fmt.Errorf("failed to read random data for key: %w", err)
+	}
+
+	return hex.EncodeToString(b), nil
 }
 
 // CreateSalt creates a random 12-byte salt for use with the encrypt/decrypt functionality.

@@ -51,4 +51,4 @@ This is the most important invariant. `Encrypt` serializes `int` and `string` (`
 
 ### Keys
 
-`CreateHexKey(bitSize)` generates an RSA private key (min 1024 bits), PEM-encodes it, and hex-encodes that PEM — the "key" is just high-entropy string material fed to HKDF, not used for RSA operations. Any non-empty string works as a key; the RSA helper is only a convenience for generating one.
+`CreateHexKey(byteSize)` reads `byteSize` random bytes (min 16) from `crypto/rand` and hex-encodes them — the "key" is just high-entropy string material fed to HKDF. Any non-empty string works as a key; the helper is only a convenience for generating one.
