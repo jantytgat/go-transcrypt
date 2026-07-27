@@ -59,12 +59,10 @@ func TestEncryptUnsupportedType(t *testing.T) {
 	}
 }
 
-// TestConvertBytesToValue_ShortBuffer verifies the numeric decode paths return
-// an error rather than panicking on undersized input.
-func TestConvertBytesToValue_ShortBuffer(t *testing.T) {
-	for _, k := range []reflect.Kind{reflect.Int, reflect.Uint64} {
-		if _, err := convertBytesToValue([]byte{0x01, 0x02}, k); err == nil {
-			t.Errorf("convertBytesToValue(short, %v) expected error, got nil", k)
-		}
+// TestConvertHexStringToValue_ShortBuffer verifies the int decode path returns
+// an error rather than panicking on undersized input ("0102" decodes to 2 bytes).
+func TestConvertHexStringToValue_ShortBuffer(t *testing.T) {
+	if _, err := convertHexStringToValue("0102", reflect.Int); err == nil {
+		t.Error("convertHexStringToValue(short, int) expected error, got nil")
 	}
 }

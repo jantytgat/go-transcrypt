@@ -22,9 +22,16 @@ import (
 // valid lowercase hex, and the ciphertext/kind fields may not be empty.
 var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{24}:[0-9a-f]+:[0-9a-f]+$`)
 
-// convertBytesToValue converts a byte-array to a reflect.Value.
-// It takes a byte-slice and a reflect.Kind and returns an error if the conversion fails.
-func convertBytesToValue(d []byte, k reflect.Kind) (reflect.Value, error) {
+// convertHexStringToValue converts a hex-encoded payload back to a reflect.Value.
+// It hex-decodes the payload internally, mirroring convertValueToHexString, and
+// returns an error if the hex is invalid or the reflect.Kind is unsupported.
+// The set of supported kinds is kept symmetric with convertValueToHexString.
+func convertHexStringToValue(s string, k reflect.Kind) (reflect.Value, error) {
+	d, err := hex.DecodeString(s)
+	if err != nil {
+		return reflect.Value{}, fmt.Errorf("cannot decode payload hex: %w", err)
+	}
+
 	switch k {
 	case reflect.Int:
 		if len(d) != 8 {
@@ -35,16 +42,7 @@ func convertBytesToValue(d []byte, k reflect.Kind) (reflect.Value, error) {
 		if int64(int(n)) != n {
 			return reflect.Value{}, fmt.Errorf("cannot decode int: value %d overflows int on this platform", n)
 		}
-		v := reflect.New(reflect.TypeOf(0))
-		v.Elem().SetInt(n)
-		return reflect.ValueOf(v.Elem().Interface()), nil
-	case reflect.Uint64:
-		if len(d) != 8 {
-			return reflect.Value{}, fmt.Errorf("cannot decode uint64: expected 8 bytes, got %d", len(d))
-		}
-		v := reflect.New(reflect.TypeOf(uint64(0)))
-		v.Elem().SetUint(binary.BigEndian.Uint64(d))
-		return reflect.ValueOf(v.Elem().Interface()), nil
+		return reflect.ValueOf(int(n)), nil
 	case reflect.String:
 		return reflect.ValueOf(string(d)), nil
 	default:
@@ -52,8 +50,9 @@ func convertBytesToValue(d []byte, k reflect.Kind) (reflect.Value, error) {
 	}
 }
 
-// convertValueToHexString converts a value to a hex-encoded string.
-// It returns an empty string and an error if the value is a kind reflect.Int and cannot be converted.
+// convertValueToHexString serializes a value and hex-encodes it.
+// It returns an empty string and an error if the value's reflect.Kind is unsupported.
+// The set of supported kinds is kept symmetric with convertHexStringToValue.
 func convertValueToHexString(v reflect.Value) (string, error) {
 	var err error
 	switch v.Kind() {

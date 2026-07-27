@@ -10,9 +10,9 @@ import (
 	"github.com/minio/sio"
 )
 
-func Test_convertBytesToValue_String(t *testing.T) {
+func Test_convertHexStringToValue_String(t *testing.T) {
 	type args struct {
-		d []byte
+		s string
 		k reflect.Kind
 	}
 
@@ -25,7 +25,7 @@ func Test_convertBytesToValue_String(t *testing.T) {
 		{
 			name: "string",
 			args: args{
-				d: []byte("hello world"),
+				s: hex.EncodeToString([]byte("hello world")),
 				k: reflect.TypeOf("hello world").Kind(),
 			},
 			want:    reflect.ValueOf("hello world"),
@@ -34,27 +34,22 @@ func Test_convertBytesToValue_String(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := convertBytesToValue(tt.args.d, tt.args.k)
+			got, err := convertHexStringToValue(tt.args.s, tt.args.k)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("convertBytesToValue() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("convertHexStringToValue() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got.String(), tt.want.String()) {
-				t.Errorf("convertBytesToValue() got = %v, want = %v", got, tt.want)
+				t.Errorf("convertHexStringToValue() got = %v, want = %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_convertBytesToValue_Uint(t *testing.T) {
+func Test_convertHexStringToValue_Int(t *testing.T) {
 	type args struct {
-		d []byte
+		s string
 		k reflect.Kind
-	}
-	var inputUint uint64 = 132130
-	bufWriterUint := bytes.NewBuffer(make([]byte, 0))
-	if bufErr := binary.Write(bufWriterUint, binary.BigEndian, inputUint); bufErr != nil {
-		panic(bufErr)
 	}
 
 	var inputInt = 132130
@@ -69,36 +64,45 @@ func Test_convertBytesToValue_Uint(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "uint64",
+			name: "int",
 			args: args{
-				d: bufWriterUint.Bytes(),
-				k: reflect.TypeOf(inputUint).Kind(),
-			},
-			want:    reflect.ValueOf(inputUint),
-			wantErr: false,
-		},
-		{
-			name: "int64",
-			args: args{
-				d: bufWriterInt.Bytes(),
+				s: hex.EncodeToString(bufWriterInt.Bytes()),
 				k: reflect.TypeOf(inputInt).Kind(),
 			},
 			want:    reflect.ValueOf(inputInt),
 			wantErr: false,
 		},
+		{
+			name: "unsupported_kind_uint64",
+			args: args{
+				s: hex.EncodeToString(bufWriterInt.Bytes()),
+				k: reflect.Uint64,
+			},
+			want:    reflect.Value{},
+			wantErr: true,
+		},
+		{
+			name: "invalid_hex",
+			args: args{
+				s: "xyz",
+				k: reflect.Int,
+			},
+			want:    reflect.Value{},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := convertBytesToValue(tt.args.d, tt.args.k)
+			got, err := convertHexStringToValue(tt.args.s, tt.args.k)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("convertBytesToValue() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("convertHexStringToValue() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr {
 				return
 			}
 			if !reflect.DeepEqual(got.Interface(), tt.want.Interface()) {
-				t.Errorf("convertBytesToValue() got = %v, want = %v", got, tt.want)
+				t.Errorf("convertHexStringToValue() got = %v, want = %v", got, tt.want)
 			}
 		})
 	}

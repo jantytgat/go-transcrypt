@@ -39,11 +39,11 @@ The output is four hex-encoded, colon-separated fields, validated on both ends b
 <cipherSuite>:<nonce/salt>:<ciphertext>:<original-kind>
 ```
 
-Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **both** halves: `convertValueToHexString` (encode) and `convertBytesToValue` (decode), and ensure the kind name round-trips through `getKindForString`.
+Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **both** halves: `convertValueToHexString` (encode) and `convertHexStringToValue` (decode), and ensure the kind name round-trips through `getKindForString`.
 
 ### Type support is intentionally narrow — keep the two converters symmetric
 
-This is the most important invariant. `Encrypt` only serializes `int` and `string` (`convertValueToHexString`); `Decrypt` only deserializes `int`, `uint64`, and `string` (`convertBytesToValue`). These lists are **not** in sync, and `getKindForString` recognizes far more kinds than either converter handles. When touching type support, change the converters together or `Decrypt` will fail (or silently mishandle) values `Encrypt` happily produced.
+This is the most important invariant. `Encrypt` serializes `int` and `string` (`convertValueToHexString`), and `Decrypt` deserializes the same set (`convertHexStringToValue`). Both converters own the inner-payload hex themselves — encode hex-encodes the serialized bytes, decode hex-decodes them — so `Decrypt` no longer hex-decodes separately. Keep the two lists in sync when touching type support, or `Decrypt` will fail (or silently mishandle) values `Encrypt` happily produced. Note `getKindForString` still recognizes far more kinds than the converters handle; an unsupported kind decodes to a valid `reflect.Kind` but then fails in `convertHexStringToValue` with `unknown type`.
 
 ### Salt vs. nonce
 

@@ -38,13 +38,8 @@ func Decrypt(key string, data string) (any, error) {
 		return nil, fmt.Errorf("decrypt failed: %w", err)
 	}
 
-	var decryptedData []byte
-	if decryptedData, err = hex.DecodeString(string(decryptedHexData.Bytes())); err != nil {
-		return nil, fmt.Errorf("decode decrypted hex data failed: %w", err)
-	}
-
 	var outputValue reflect.Value
-	if outputValue, err = convertBytesToValue(decryptedData, kind); err != nil {
+	if outputValue, err = convertHexStringToValue(decryptedHexData.String(), kind); err != nil {
 		return nil, err
 	}
 
