@@ -2,6 +2,7 @@ package transcrypt
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -33,7 +34,7 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 	for _, s := range suites {
 		for _, v := range values {
 			t.Run(s.name+"/"+v.name, func(t *testing.T) {
-				encrypted, err := Encrypt(testKey, nil, s.suite, v.in)
+				encrypted, err := Encrypt(testKey, s.suite, v.in)
 				if err != nil {
 					t.Fatalf("Encrypt() error = %v", err)
 				}
@@ -53,8 +54,44 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 // instead of being silently mishandled.
 func TestEncryptUnsupportedType(t *testing.T) {
 	for _, v := range []any{true, uint64(5), int64(5), 3.14, int32(5)} {
-		if _, err := Encrypt(testKey, nil, AES_256_GCM, v); err == nil {
+		if _, err := Encrypt(testKey, AES_256_GCM, v); err == nil {
 			t.Errorf("Encrypt(%T) expected error, got nil", v)
+		}
+	}
+}
+
+// TestEncryptNonceUniqueness proves that encrypting the same value with the same
+// key twice produces a different nonce (and thus a different ciphertext) each
+// time, so the (key, nonce) pair is never reused. Both outputs must still decrypt.
+func TestEncryptNonceUniqueness(t *testing.T) {
+	const value = "sensitive value"
+
+	a, err := Encrypt(testKey, AES_256_GCM, value)
+	if err != nil {
+		t.Fatalf("Encrypt() first call error = %v", err)
+	}
+	b, err := Encrypt(testKey, AES_256_GCM, value)
+	if err != nil {
+		t.Fatalf("Encrypt() second call error = %v", err)
+	}
+
+	// Field 2 of the colon-delimited output is the nonce.
+	nonceA := strings.Split(a, ":")[1]
+	nonceB := strings.Split(b, ":")[1]
+	if nonceA == nonceB {
+		t.Errorf("nonce reused across two encryptions: %s", nonceA)
+	}
+	if a == b {
+		t.Error("two encryptions of the same value produced identical output")
+	}
+
+	for _, enc := range []string{a, b} {
+		got, err := Decrypt(testKey, enc)
+		if err != nil {
+			t.Fatalf("Decrypt() error = %v", err)
+		}
+		if got != value {
+			t.Errorf("Decrypt() got = %v, want %v", got, value)
 		}
 	}
 }

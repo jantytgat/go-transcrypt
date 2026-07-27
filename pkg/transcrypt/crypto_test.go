@@ -50,32 +50,11 @@ func Test_CreateHexKey(t *testing.T) {
 	}
 }
 
-func Test_CreateSalt(t *testing.T) {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "success",
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := CreateSalt()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateSalt() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
 func Test_createCryptoConfig(t *testing.T) {
 	type args struct {
 		key    string
 		cipher []byte
-		salt   []byte
+		nonce  []byte
 	}
 	tests := []struct {
 		name    string
@@ -87,7 +66,7 @@ func Test_createCryptoConfig(t *testing.T) {
 			args: args{
 				key:    "test",
 				cipher: nil,
-				salt:   nil,
+				nonce:  nil,
 			},
 			wantErr: true,
 		},
@@ -96,32 +75,32 @@ func Test_createCryptoConfig(t *testing.T) {
 			args: args{
 				key:    "test",
 				cipher: nil,
-				salt:   nil,
+				nonce:  nil,
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid_salt",
+			name: "invalid_nonce",
 			args: args{
 				key:    "test",
 				cipher: []byte("cipher"),
-				salt:   []byte("salt"),
+				nonce:  []byte("short"),
 			},
 			wantErr: true,
 		},
 		{
-			name: "valid",
+			name: "valid_generated_nonce",
 			args: args{
 				key:    "test",
 				cipher: []byte("cipher"),
-				salt:   nil,
+				nonce:  nil,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.salt)
+			_, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.nonce)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createCryptoConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return

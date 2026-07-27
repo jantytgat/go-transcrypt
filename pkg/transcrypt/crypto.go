@@ -30,20 +30,14 @@ func CreateHexKey(byteSize int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// CreateSalt creates a random 12-byte salt for use with the encrypt/decrypt functionality.
-func CreateSalt() ([]byte, error) {
-	var nonce [12]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-		return nil, fmt.Errorf("failed to read random data for nonce: %w", err)
-	}
-
-	return nonce[:], nil
-}
-
-// createCryptoConfig creates a sio.config from the supplied key, cipher and optional salt.
-// It returns an error if either key or cipher is empty.
-// It also returns an error if the supplied salt is less than 12 bytes long.
-func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, error) {
+// createCryptoConfig creates a sio.Config from the supplied key, cipher and nonce.
+// The same 12-byte nonce is used both as the HKDF salt (to derive the encryption
+// key) and as the sio AEAD nonce. If nonce is nil, a fresh random one is generated;
+// this is the encryption path, and generating it per call guarantees the (key,
+// nonce) pair is never reused. On decryption the nonce is passed in from the
+// encoded string. It returns an error if key or cipher is empty, or if a supplied
+// nonce is shorter than 12 bytes.
+func createCryptoConfig(key string, cipher []byte, nonce []byte) (sio.Config, error) {
 	if key == "" {
 		return sio.Config{}, errors.New("key is empty")
 	}
@@ -53,19 +47,21 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 	}
 
 	var err error
-	// If salt is nil, create a new salt that can be used for encryption
-	if salt == nil {
-		if salt, err = CreateSalt(); err != nil {
-			return sio.Config{}, fmt.Errorf("could not create salt: %w", err)
+	// If no nonce is supplied, generate a fresh random one for this encryption.
+	if nonce == nil {
+		var n [12]byte
+		if _, err = io.ReadFull(rand.Reader, n[:]); err != nil {
+			return sio.Config{}, fmt.Errorf("failed to read random data for nonce: %w", err)
 		}
+		nonce = n[:]
 	}
 
-	if len(salt) < 12 {
-		return sio.Config{}, fmt.Errorf("salt needs to be at least 12 bytes, got %d", len(salt))
+	if len(nonce) < 12 {
+		return sio.Config{}, fmt.Errorf("nonce needs to be at least 12 bytes, got %d", len(nonce))
 	}
 
 	// Create encryption key
-	kdf := hkdf.New(sha256.New, []byte(key), salt[:12], nil)
+	kdf := hkdf.New(sha256.New, []byte(key), nonce[:12], nil)
 	var encKey [32]byte
 	if _, err = io.ReadFull(kdf, encKey[:]); err != nil {
 		return sio.Config{}, fmt.Errorf("failed to derive encryption encKey: %w", err)
@@ -74,7 +70,7 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, err
 	return sio.Config{
 		CipherSuites: cipher,
 		Key:          encKey[:],
-		Nonce:        (*[12]byte)(salt[:]),
+		Nonce:        (*[12]byte)(nonce[:]),
 	}, nil
 }
 

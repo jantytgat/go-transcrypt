@@ -36,18 +36,11 @@ if key, err = transcrypt.CreateHexKey(32); err != nil {
 }
 ```
 
-### Salt
+### Nonce
 
-A salt is also required for proper encryption.
-You can generate a new salt for every call by leaving the salt as `nil` when calling the `Encrypt` function.
-If you want to use a specific salt, you can either provide it manually (at least 12 bytes) or generate one with `CreateSalt`.
-
-```go
-var salt []byte
-if salt, err = transcrypt.CreateSalt(); err != nil {
-	panic(err)
-}
-```
+No salt or nonce needs to be supplied. `Encrypt` generates a fresh random nonce
+for every call and stores it in the output, so encrypting the same value twice
+never produces the same result and the `(key, nonce)` pair is never reused.
 
 ## Operations
 
@@ -61,7 +54,7 @@ Currently, the following data types are supported for encryption:
 ```go
 var inputString = "hello world"
 var encryptedString string
-if encryptedString, err = transcrypt.Encrypt(key, salt, transcrypt.AES_256_GCM, inputString); err != nil {
+if encryptedString, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputString); err != nil {
 	panic(err)
 }
 ```

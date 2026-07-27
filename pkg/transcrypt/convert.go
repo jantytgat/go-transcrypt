@@ -93,9 +93,9 @@ func decodeHexString(key string, data string) ([]byte, reflect.Kind, sio.Config,
 		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode cipersuite: %w", err)
 	}
 
-	var salt []byte
-	if salt, err = hex.DecodeString(split[1]); err != nil {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode salt: %w", err)
+	var nonce []byte
+	if nonce, err = hex.DecodeString(split[1]); err != nil {
+		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode nonce: %w", err)
 	}
 
 	var encryptedBytes []byte
@@ -114,7 +114,7 @@ func decodeHexString(key string, data string) ([]byte, reflect.Kind, sio.Config,
 	}
 
 	var cryptoConfig sio.Config
-	if cryptoConfig, err = createCryptoConfig(key, cipherSuiteBytes, salt); err != nil {
+	if cryptoConfig, err = createCryptoConfig(key, cipherSuiteBytes, nonce); err != nil {
 		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot create crypto config: %w", err)
 	}
 
