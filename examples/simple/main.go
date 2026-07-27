@@ -16,32 +16,48 @@ func main() {
 	fmt.Println("Key: ", key)
 	fmt.Println("###############")
 
-	var inputString = "hello world"
-	fmt.Println("input:", inputString)
-	var encryptedString string
-	if encryptedString, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputString); err != nil {
-		panic(err)
+	inputs := []any{
+		"hello world",
+		true,
+		int(123456),
+		int8(-12),
+		int16(-1234),
+		int32(-123456),
+		int64(-1234567890),
+		uint(123456),
+		uint8(255),
+		uint16(65535),
+		uint32(4294967295),
+		uint64(18446744073709551615),
+		float32(3.14),
+		float64(2.718281828459045),
+		complex64(complex(1, 2)),
+		complex128(complex(3.5, -4.5)),
+		[]byte{0xde, 0xad, 0xbe, 0xef},
 	}
-	fmt.Println("Encrypted:", encryptedString)
 
-	var decryptedString any
-	if decryptedString, err = transcrypt.Decrypt(key, encryptedString); err != nil {
+	for _, input := range inputs {
+		demo(key, transcrypt.AES_256_GCM, input)
+	}
+
+	fmt.Println("### CHACHA20_POLY1305 works the same way ###")
+	demo(key, transcrypt.CHACHA20_POLY1305, "hello chacha")
+}
+
+func demo(key string, suite transcrypt.CipherSuite, input any) {
+	fmt.Printf("Input:     %v (%T)\n", input, input)
+
+	var err error
+	var encrypted string
+	if encrypted, err = transcrypt.Encrypt(key, suite, input); err != nil {
 		panic(err)
 	}
-	fmt.Println("Decrypted:", decryptedString)
+	fmt.Println("Encrypted:", encrypted)
+
+	var decrypted any
+	if decrypted, err = transcrypt.Decrypt(key, encrypted); err != nil {
+		panic(err)
+	}
+	fmt.Printf("Decrypted: %v (%T)\n", decrypted, decrypted)
 	fmt.Println("###############")
-
-	var inputInt = 123456
-	fmt.Println("input:", inputInt)
-	var encryptedInt string
-	if encryptedInt, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputInt); err != nil {
-		panic(err)
-	}
-	fmt.Println("Encrypted:", encryptedInt)
-
-	var decryptedInt any
-	if decryptedInt, err = transcrypt.Decrypt(key, encryptedInt); err != nil {
-		panic(err)
-	}
-	fmt.Println("Decrypted:", decryptedInt)
 }
