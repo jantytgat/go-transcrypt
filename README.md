@@ -24,7 +24,9 @@ import "github.com/jantytgat/go-transcrypt"
 
 ### Encryption key
 
-The encryption key is a string used to encrypt the data with.
+The encryption key is a string used to encrypt the data with. `Encrypt` requires it
+to be at least 16 bytes; HKDF stretches the key but cannot add entropy, so a short
+key would weaken every ciphertext.
 A function `CreateHexKey(byteSize int)` is available to create a random key from `byteSize`
 cryptographically secure random bytes (minimum 16), returned as a hex-encoded string.
 

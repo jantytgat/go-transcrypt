@@ -13,6 +13,13 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+// minKeyLength is the minimum accepted length, in bytes, for a caller-supplied
+// encryption key. HKDF stretches the key but cannot add entropy, so a floor here
+// guards against trivially weak keys reaching Encrypt. It matches CreateHexKey's
+// 16-byte minimum. It is enforced on encryption only: Decrypt stays able to read
+// data produced by any key so existing ciphertext never becomes unreadable.
+const minKeyLength = 16
+
 // CreateHexKey generates a random hex-encoded key which can be used for encryption.
 // It reads byteSize cryptographically secure random bytes and hex-encodes them.
 // The key is used purely as high-entropy input keying material for HKDF, so byteSize

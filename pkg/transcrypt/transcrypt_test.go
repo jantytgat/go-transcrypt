@@ -109,9 +109,19 @@ func TestEncrypt(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "short_key",
+			args: args{
+				// 15 bytes: one short of the minimum.
+				key:         "0123456789abcde",
+				cipherSuite: AES_256_GCM,
+				d:           "hello world",
+			},
+			wantErr: true,
+		},
+		{
 			name: "empty_data",
 			args: args{
-				key:         "key",
+				key:         testKey,
 				cipherSuite: AES_256_GCM,
 				d:           nil,
 			},
@@ -120,7 +130,7 @@ func TestEncrypt(t *testing.T) {
 		{
 			name: "unsupported_type",
 			args: args{
-				key:         "key",
+				key:         testKey,
 				cipherSuite: AES_256_GCM,
 				d:           map[string]int{"a": 1},
 			},
@@ -129,7 +139,7 @@ func TestEncrypt(t *testing.T) {
 		{
 			name: "unknown_cipher_suite",
 			args: args{
-				key:         "key",
+				key:         testKey,
 				cipherSuite: CipherSuite(99),
 				d:           "hello world",
 			},

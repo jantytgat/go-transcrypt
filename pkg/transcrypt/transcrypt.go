@@ -58,13 +58,13 @@ func Decrypt(key string, data string) (any, error) {
 }
 
 // Encrypt encrypts the supplied data using the supplied secret key and cipher suite.
-// It will return an error if either the key is empty or the data is nil.
+// It will return an error if the key is shorter than minKeyLength bytes or the data is nil.
 // Additionally, if the necessary cryptographic configuration cannot be created using the supplied cipherSuite, it will return an error.
 // A fresh random nonce is generated for every call, so encrypting twice never
 // reuses the same (key, nonce) pair.
 func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
-	if key == "" {
-		return "", errors.New("key is empty")
+	if len(key) < minKeyLength {
+		return "", fmt.Errorf("key must be at least %d bytes", minKeyLength)
 	}
 
 	if d == nil {

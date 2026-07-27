@@ -55,4 +55,4 @@ A single 12-byte value serves as both the HKDF salt and the sio `Nonce`: `create
 
 ### Keys
 
-`CreateHexKey(byteSize)` reads `byteSize` random bytes (min 16) from `crypto/rand` and hex-encodes them — the "key" is just high-entropy string material fed to HKDF. Any non-empty string works as a key; the helper is only a convenience for generating one.
+`CreateHexKey(byteSize)` reads `byteSize` random bytes (min 16) from `crypto/rand` and hex-encodes them — the "key" is just high-entropy string material fed to HKDF. `Encrypt` requires the key to be at least `minKeyLength` (16) bytes; HKDF stretches but cannot add entropy, so this floor guards against trivially weak keys. The floor is enforced on encryption only — `Decrypt` keeps its `key != ""` check so existing ciphertext stays readable regardless of the key that produced it. The helper is only a convenience for generating a suitable key.
