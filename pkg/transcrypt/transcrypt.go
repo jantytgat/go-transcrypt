@@ -25,21 +25,32 @@ func Decrypt(key string, data string) (any, error) {
 
 	var err error
 	var encryptedData []byte
-	var kind reflect.Kind
 	var cryptoConfig sio.Config
 
-	if encryptedData, kind, cryptoConfig, err = decodeHexString(key, data); err != nil {
+	if encryptedData, cryptoConfig, err = decodeHexString(key, data); err != nil {
 		return nil, err
 	}
 
-	var decryptedHexData *bytes.Buffer
-	decryptedHexData = bytes.NewBuffer(make([]byte, 0))
-	if _, err = sio.Decrypt(decryptedHexData, bytes.NewBuffer(encryptedData), cryptoConfig); err != nil {
+	var decryptedData *bytes.Buffer
+	decryptedData = bytes.NewBuffer(make([]byte, 0))
+	if _, err = sio.Decrypt(decryptedData, bytes.NewBuffer(encryptedData), cryptoConfig); err != nil {
 		return nil, fmt.Errorf("decrypt failed: %w", err)
 	}
 
+	// Recover the type tag from the authenticated plaintext. Because it was inside
+	// the ciphertext, a tampered tag would already have failed sio.Decrypt above.
+	var kindName, hexPayload string
+	if kindName, hexPayload, err = decodeInnerPayload(decryptedData.String()); err != nil {
+		return nil, err
+	}
+
+	kind := getKindForString(kindName)
+	if kind == reflect.Invalid {
+		return nil, fmt.Errorf("cannot decode kind %q", kindName)
+	}
+
 	var outputValue reflect.Value
-	if outputValue, err = convertHexStringToValue(decryptedHexData.String(), kind); err != nil {
+	if outputValue, err = convertHexStringToValue(hexPayload, kind); err != nil {
 		return nil, err
 	}
 
@@ -61,11 +72,15 @@ func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
 	}
 
 	var err error
-	var data string
+	var hexPayload string
 	// Convert input data to reflect.Value before serialization
-	if data, err = convertValueToHexString(reflect.ValueOf(d)); err != nil {
+	if hexPayload, err = convertValueToHexString(reflect.ValueOf(d)); err != nil {
 		return "", err
 	}
+
+	// Frame the type tag together with the payload so both are encrypted as one
+	// unit; this keeps the type authenticated by the AEAD and immune to tampering.
+	plaintext := encodeInnerPayload(reflect.TypeOf(d).Kind().String(), hexPayload)
 
 	// A nil nonce makes createCryptoConfig generate a fresh random one per call.
 	var cryptoConfig sio.Config
@@ -74,17 +89,17 @@ func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
 	}
 
 	encryptedData := bytes.NewBuffer(make([]byte, 0))
-	if _, err = sio.Encrypt(encryptedData, bytes.NewBuffer([]byte(data)), cryptoConfig); err != nil {
+	if _, err = sio.Encrypt(encryptedData, bytes.NewBufferString(plaintext), cryptoConfig); err != nil {
 		return "", err
 	}
 
-	// Encode all details in hex before joining together
+	// Encode all details in hex before joining together. The type tag is no longer
+	// a separate field: it lives inside the ciphertext above.
 	encryptedString := strings.Join(
 		[]string{
 			hex.EncodeToString([]byte{byte(cipherSuite)}),
 			hex.EncodeToString(cryptoConfig.Nonce[:]),
 			hex.EncodeToString(encryptedData.Bytes()),
-			hex.EncodeToString([]byte(reflect.TypeOf(d).Kind().String())),
 		}, ":",
 	)
 

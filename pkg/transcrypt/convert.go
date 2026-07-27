@@ -18,10 +18,33 @@ import (
 // 1. Cipher suite  - one hex-encoded byte (2 lowercase hex chars, e.g. "0a")
 // 2. Salt/nonce    - 12 hex-encoded bytes (24 lowercase hex chars)
 // 3. Data          - hex-encoded ciphertext (non-empty)
-// 4. Original type - hex-encoded reflect.Kind name (non-empty)
 // The pattern is anchored so the whole string must match, every field must be
-// valid lowercase hex, and the ciphertext/kind fields may not be empty.
-var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{24}:[0-9a-f]+:[0-9a-f]+$`)
+// valid lowercase hex, and the ciphertext field may not be empty. The original
+// type is no longer a separate field: it is carried inside the authenticated
+// ciphertext (see encodeInnerPayload) so it cannot be tampered with undetected.
+var regexEncryptedString = regexp.MustCompile(`^[0-9a-f]{2}:[0-9a-f]{24}:[0-9a-f]+$`)
+
+// encodeInnerPayload frames the type tag together with the hex-encoded value so
+// that both are encrypted as a single unit. The layout is "<kind>:<hexPayload>"
+// where kind is a reflect.Kind name (lowercase letters/digits only) and
+// hexPayload is the lowercase-hex value produced by convertValueToHexString.
+// Because the delimiter never appears in a kind name, the first colon splits the
+// two fields unambiguously. Framing the kind here (rather than as a plaintext
+// outer field) means it is covered by the AEAD and cannot be altered without
+// failing decryption.
+func encodeInnerPayload(kind string, hexPayload string) string {
+	return kind + ":" + hexPayload
+}
+
+// decodeInnerPayload splits the decrypted inner payload back into its kind name
+// and hex payload. It returns an error if the delimiter is missing.
+func decodeInnerPayload(s string) (kind string, hexPayload string, err error) {
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("malformed payload: missing type tag")
+	}
+	return parts[0], parts[1], nil
+}
 
 // convertHexStringToValue converts a hex-encoded payload back to a reflect.Value.
 // It hex-decodes the payload internally, mirroring convertValueToHexString, and
@@ -180,18 +203,21 @@ func convertValueToHexString(v reflect.Value) (string, error) {
 }
 
 // decodeHexString decodes data into the pieces that make up the encrypted data.
-// It takes an encrypted key and data string and returns the actual encrypted data as a byte-slice, reflect.Kind and the encryption config.
+// It takes an encryption key and data string and returns the actual encrypted
+// data as a byte-slice and the encryption config. The original type is not
+// returned here: it lives inside the authenticated ciphertext and is recovered
+// only after decryption (see decodeInnerPayload).
 // It returns an error if the data string is empty or invalid, or any of the steps to get the encrypted data fails.
-func decodeHexString(key string, data string) ([]byte, reflect.Kind, sio.Config, error) {
+func decodeHexString(key string, data string) ([]byte, sio.Config, error) {
 	if key == "" {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("key is empty")
+		return nil, sio.Config{}, fmt.Errorf("key is empty")
 	}
 	if data == "" {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("value is empty")
+		return nil, sio.Config{}, fmt.Errorf("value is empty")
 	}
 
 	if !regexEncryptedString.MatchString(data) {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("value is not valid")
+		return nil, sio.Config{}, fmt.Errorf("value is not valid")
 	}
 
 	var split []string
@@ -200,33 +226,23 @@ func decodeHexString(key string, data string) ([]byte, reflect.Kind, sio.Config,
 	var err error
 	var cipherSuiteBytes []byte
 	if cipherSuiteBytes, err = hex.DecodeString(split[0]); err != nil {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode cipersuite: %w", err)
+		return nil, sio.Config{}, fmt.Errorf("cannot decode ciphersuite: %w", err)
 	}
 
 	var nonce []byte
 	if nonce, err = hex.DecodeString(split[1]); err != nil {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode nonce: %w", err)
+		return nil, sio.Config{}, fmt.Errorf("cannot decode nonce: %w", err)
 	}
 
 	var encryptedBytes []byte
 	if encryptedBytes, err = hex.DecodeString(split[2]); err != nil {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode encrypted data: %w", err)
-	}
-
-	var kindBytes []byte
-	if kindBytes, err = hex.DecodeString(split[3]); err != nil {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode kindBytes: %w", err)
-	}
-
-	var kind reflect.Kind
-	if kind = getKindForString(string(kindBytes)); kind == reflect.Invalid {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot decode kind %q", string(kindBytes))
+		return nil, sio.Config{}, fmt.Errorf("cannot decode encrypted data: %w", err)
 	}
 
 	var cryptoConfig sio.Config
 	if cryptoConfig, err = createCryptoConfig(key, cipherSuiteBytes, nonce); err != nil {
-		return nil, reflect.Invalid, sio.Config{}, fmt.Errorf("cannot create crypto config: %w", err)
+		return nil, sio.Config{}, fmt.Errorf("cannot create crypto config: %w", err)
 	}
 
-	return encryptedBytes, kind, cryptoConfig, nil
+	return encryptedBytes, cryptoConfig, nil
 }

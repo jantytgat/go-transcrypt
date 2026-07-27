@@ -33,13 +33,15 @@ The round-trip flows through four files in `pkg/transcrypt`, split by responsibi
 
 ### Encoded string format
 
-The output is four hex-encoded, colon-separated fields, validated on both ends by `regexEncryptedString` (`convert.go`):
+The output is three hex-encoded, colon-separated fields, validated on both ends by `regexEncryptedString` (`convert.go`):
 
 ```
-<cipherSuite>:<nonce/salt>:<ciphertext>:<original-kind>
+<cipherSuite>:<nonce/salt>:<ciphertext>
 ```
 
-Field 4 stores `reflect.Kind.String()` so `Decrypt` can reconstruct the original Go type without the caller specifying it. When adding support for a new type you must update **three** places: `convertValueToHexString` (encode), `convertHexStringToValue` (decode), and `getKindForString` (kind name → `reflect.Kind`).
+The original type is **not** an outer field. `Encrypt` frames it together with the value as `<kind>:<hexPayload>` (see `encodeInnerPayload`) and encrypts that whole string, so the type tag is covered by the AEAD. `Decrypt` recovers it from the decrypted plaintext via `decodeInnerPayload`. This is deliberate: an earlier format kept the kind as a fourth *plaintext* field, which let an attacker relabel a stored value as a different same-width type (e.g. `int64`↔`float64`, both 8 bytes) without failing decryption. Keeping the kind inside the ciphertext makes any such tampering fail AEAD verification. Only `<cipherSuite>` remains outside the ciphertext (it must be readable to pick the cipher); tampering it merely breaks decryption, it cannot cause type confusion.
+
+When adding support for a new type you must update **three** places: `convertValueToHexString` (encode), `convertHexStringToValue` (decode), and `getKindForString` (kind name → `reflect.Kind`).
 
 ### Keep the three type lists in sync
 

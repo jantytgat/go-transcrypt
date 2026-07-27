@@ -160,7 +160,6 @@ func Test_decodeHexString(t *testing.T) {
 		name       string
 		args       args
 		wantData   []byte
-		wantKind   reflect.Kind
 		wantConfig sio.Config
 		wantErr    bool
 	}{
@@ -171,7 +170,6 @@ func Test_decodeHexString(t *testing.T) {
 				data: "",
 			},
 			wantData: nil,
-			wantKind: reflect.Invalid,
 			wantErr:  true,
 		},
 		{
@@ -181,47 +179,33 @@ func Test_decodeHexString(t *testing.T) {
 				data: "",
 			},
 			wantData: nil,
-			wantKind: reflect.Invalid,
 			wantErr:  true,
 		},
 		{
 			name: "invalid_value_ciphersuite",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "__:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:737472696e67",
+				data: "__:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
-			wantKind: reflect.Invalid,
 			wantErr:  true,
 		},
 		{
 			name: "invalid_value_nonce",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "00:__:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:737472696e67",
+				data: "00:__:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
-			wantKind: reflect.Invalid,
 			wantErr:  true,
 		},
 		{
 			name: "invalid_value_data",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "00:68e191dfc1f3180904d19a58:__:737472696e67",
+				data: "00:68e191dfc1f3180904d19a58:__",
 			},
 			wantData: nil,
-			wantKind: reflect.Invalid,
-			wantErr:  true,
-		},
-		{
-			name: "invalid_value_kind",
-			args: args{
-				key:  string(decodedHexKey),
-				data: "00:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:__",
-			},
-			wantData: nil,
-			wantKind: reflect.Invalid,
 			wantErr:  true,
 		},
 		{
@@ -229,10 +213,9 @@ func Test_decodeHexString(t *testing.T) {
 			args: args{
 				key: string(decodedHexKey),
 				// Cipher-suite field must be exactly two hex chars; one char fails the format regex.
-				data: "0:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:737472696e67",
+				data: "0:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
-			wantKind: reflect.String,
 			wantErr:  true,
 		},
 		{
@@ -240,10 +223,9 @@ func Test_decodeHexString(t *testing.T) {
 			args: args{
 				key: string(decodedHexKey),
 				// Nonce/salt field must be exactly 24 hex chars (12 bytes); 22 chars fails the format regex.
-				data: "00:dddddddddddddddddddddd:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:737472696e67",
+				data: "00:dddddddddddddddddddddd:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
-			wantKind: reflect.String,
 			wantErr:  true,
 		},
 		{
@@ -251,45 +233,30 @@ func Test_decodeHexString(t *testing.T) {
 			args: args{
 				key: string(decodedHexKey),
 				// Ciphertext field passes the format regex but is odd-length hex, so hex decoding fails.
-				data: "00:68e191dfc1f3180904d19a58:abc:737472696e67",
+				data: "00:68e191dfc1f3180904d19a58:abc",
 			},
 			wantData: nil,
-			wantKind: reflect.String,
-			wantErr:  true,
-		},
-		{
-			name: "invalid_kind",
-			args: args{
-				key:  string(decodedHexKey),
-				data: "00:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:dddddddddddd",
-			},
-			wantData: nil,
-			wantKind: reflect.String,
 			wantErr:  true,
 		},
 		{
 			name: "valid",
 			args: args{
 				key:  string(decodedHexKey),
-				data: "00:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5:737472696e67",
+				data: "00:68e191dfc1f3180904d19a58:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
-			wantKind: reflect.String,
 			wantErr:  false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotData, gotKind, gotConfig, err := decodeHexString(tt.args.key, tt.args.data)
+			gotData, gotConfig, err := decodeHexString(tt.args.key, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("decodeHexString() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr {
 				return
-			}
-			if gotKind != tt.wantKind {
-				t.Errorf("decodeHexString() gotKind = %v, wantKind %v", gotKind, tt.wantKind)
 			}
 			if len(gotData) == 0 {
 				t.Errorf("decodeHexString() gotData is empty")

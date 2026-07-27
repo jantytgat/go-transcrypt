@@ -121,6 +121,53 @@ func TestEncryptNonceUniqueness(t *testing.T) {
 	}
 }
 
+// TestDecryptRejectsTamperedTypeTag proves the type tag is authenticated: it is
+// carried inside the ciphertext, so an attacker cannot relabel a stored value as
+// a different same-width type without failing decryption. An int64 and a float64
+// share an 8-byte payload, so before the tag was authenticated this swap silently
+// returned a bogus float; now it must be rejected.
+func TestDecryptRejectsTamperedTypeTag(t *testing.T) {
+	encrypted, err := Encrypt(testKey, AES_256_GCM, int64(4614256656552045848))
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
+
+	// The nonce (field 2) is also the HKDF salt, so re-encoding the ciphertext under
+	// a fresh nonce is not something an attacker can do without the key. The only
+	// mutable plaintext left is the ciphertext bytes themselves; flipping one byte
+	// of the ciphertext must break AEAD verification.
+	parts := strings.Split(encrypted, ":")
+	if len(parts) != 3 {
+		t.Fatalf("unexpected format: %q has %d fields, want 3", encrypted, len(parts))
+	}
+	ct := []byte(parts[2])
+	// Flip the last hex nibble of the ciphertext to simulate tampering with the
+	// (now authenticated) inner type tag / payload.
+	if ct[len(ct)-1] == '0' {
+		ct[len(ct)-1] = '1'
+	} else {
+		ct[len(ct)-1] = '0'
+	}
+	parts[2] = string(ct)
+	tampered := strings.Join(parts, ":")
+
+	if _, err := Decrypt(testKey, tampered); err == nil {
+		t.Error("Decrypt() accepted tampered ciphertext, want error")
+	}
+}
+
+// TestEncryptedFormatHasThreeFields locks in the authenticated wire format: the
+// type tag must not reappear as a fourth, tamperable plaintext field.
+func TestEncryptedFormatHasThreeFields(t *testing.T) {
+	encrypted, err := Encrypt(testKey, AES_256_GCM, "hello world")
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
+	if got := len(strings.Split(encrypted, ":")); got != 3 {
+		t.Errorf("encrypted output has %d fields, want 3: %q", got, encrypted)
+	}
+}
+
 // TestConvertHexStringToValue_ShortBuffer verifies the int decode path returns
 // an error rather than panicking on undersized input ("0102" decodes to 2 bytes).
 func TestConvertHexStringToValue_ShortBuffer(t *testing.T) {
