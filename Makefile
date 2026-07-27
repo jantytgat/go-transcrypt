@@ -1,0 +1,42 @@
+GO ?= go
+PKG := ./...
+# The library is the whole product surface; examples/simple is an untested demo,
+# so coverage is measured against the package to keep the number meaningful.
+COVERPKG := ./pkg/transcrypt/
+COVERPROFILE := coverage.out
+
+.DEFAULT_GOAL := test
+
+.PHONY: help
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: build
+build: ## Build all packages
+	$(GO) build $(PKG)
+
+.PHONY: vet
+vet: ## Run go vet
+	$(GO) vet $(PKG)
+
+.PHONY: test
+test: ## Run all tests with the race detector
+	$(GO) test -race $(PKG)
+
+.PHONY: coverage
+coverage: ## Run tests and report coverage to the terminal
+	$(GO) test -race -cover -coverprofile=$(COVERPROFILE) $(COVERPKG)
+	$(GO) tool cover -func=$(COVERPROFILE)
+
+.PHONY: coverage-html
+coverage-html: coverage ## Generate and open an HTML coverage report
+	$(GO) tool cover -html=$(COVERPROFILE)
+
+.PHONY: example
+example: ## Run the usage example
+	$(GO) run ./examples/simple
+
+.PHONY: clean
+clean: ## Remove generated artifacts
+	rm -f $(COVERPROFILE)
