@@ -56,7 +56,7 @@ func TestDecrypt(t *testing.T) {
 			name: "valid_string",
 			args: args{
 				key:  "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
-				data: "00:5a412cac418ecf54f86c0da4:20001500da412cac418ecf54f86c0da472bb69380c4abb66a0f8542e4b147d01fa503589bb4e3a37c2e2f979d4721da17397089d1477:737472696e67",
+				data: "00:1dd908719ff16e1f5d701e97f3a0345ac08d888a24080b50482108a5ae85a4e8:20001c00aa2c6d981e121c07b6e2ee3f259b1c63e4a52bb6838b8aa300adc075b5f074a02d5ca88c0c8c658f5fb0aa09f4ffe9bc6e9c27166c4af8135f",
 			},
 			want:    "hello world",
 			wantErr: false,
@@ -65,7 +65,7 @@ func TestDecrypt(t *testing.T) {
 			name: "valid_int",
 			args: args{
 				key:  "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
-				data: "00:41ce7b530435c9189a203937:20000f00c1ce7b530435c9189a20393717bf895ce6d904a75640a6de8d2e33ab3c2fb3751e2825e9f6f2b23f5bf4df12:696e74",
+				data: "00:10c26724d88604f99d29f2882bf2177c028ffeece92656004da06f8fc0263242:20001300cd7cb3d924d15379607a23ee1dd3edb91f5cec25fb7fdadbc4357df92d68a924719a1306afaa9e5c50732b3f03b9ea74",
 			},
 			want:    123456,
 			wantErr: false,
@@ -109,9 +109,19 @@ func TestEncrypt(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "short_key",
+			args: args{
+				// 15 bytes: one short of the minimum.
+				key:         "0123456789abcde",
+				cipherSuite: AES_256_GCM,
+				d:           "hello world",
+			},
+			wantErr: true,
+		},
+		{
 			name: "empty_data",
 			args: args{
-				key:         "key",
+				key:         testKey,
 				cipherSuite: AES_256_GCM,
 				d:           nil,
 			},
@@ -120,9 +130,18 @@ func TestEncrypt(t *testing.T) {
 		{
 			name: "unsupported_type",
 			args: args{
-				key:         "key",
+				key:         testKey,
 				cipherSuite: AES_256_GCM,
 				d:           map[string]int{"a": 1},
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown_cipher_suite",
+			args: args{
+				key:         testKey,
+				cipherSuite: CipherSuite(99),
+				d:           "hello world",
 			},
 			wantErr: true,
 		},

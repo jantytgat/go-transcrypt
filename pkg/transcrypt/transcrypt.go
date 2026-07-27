@@ -25,21 +25,32 @@ func Decrypt(key string, data string) (any, error) {
 
 	var err error
 	var encryptedData []byte
-	var kind reflect.Kind
 	var cryptoConfig sio.Config
 
-	if encryptedData, kind, cryptoConfig, err = decodeHexString(key, data); err != nil {
+	if encryptedData, cryptoConfig, err = decodeHexString(key, data); err != nil {
 		return nil, err
 	}
 
-	var decryptedHexData *bytes.Buffer
-	decryptedHexData = bytes.NewBuffer(make([]byte, 0))
-	if _, err = sio.Decrypt(decryptedHexData, bytes.NewBuffer(encryptedData), cryptoConfig); err != nil {
+	var decryptedData *bytes.Buffer
+	decryptedData = bytes.NewBuffer(make([]byte, 0))
+	if _, err = sio.Decrypt(decryptedData, bytes.NewBuffer(encryptedData), cryptoConfig); err != nil {
 		return nil, fmt.Errorf("decrypt failed: %w", err)
 	}
 
+	// Recover the type tag from the authenticated plaintext. Because it was inside
+	// the ciphertext, a tampered tag would already have failed sio.Decrypt above.
+	var kindName, hexPayload string
+	if kindName, hexPayload, err = decodeInnerPayload(decryptedData.String()); err != nil {
+		return nil, err
+	}
+
+	kind := getKindForString(kindName)
+	if kind == reflect.Invalid {
+		return nil, fmt.Errorf("cannot decode kind %q", kindName)
+	}
+
 	var outputValue reflect.Value
-	if outputValue, err = convertHexStringToValue(decryptedHexData.String(), kind); err != nil {
+	if outputValue, err = convertHexStringToValue(hexPayload, kind); err != nil {
 		return nil, err
 	}
 
@@ -47,44 +58,54 @@ func Decrypt(key string, data string) (any, error) {
 }
 
 // Encrypt encrypts the supplied data using the supplied secret key and cipher suite.
-// It will return an error if either the key is empty or the data is nil.
+// It will return an error if the key is shorter than minKeyLength bytes or the data is nil.
 // Additionally, if the necessary cryptographic configuration cannot be created using the supplied cipherSuite, it will return an error.
 // A fresh random nonce is generated for every call, so encrypting twice never
 // reuses the same (key, nonce) pair.
 func Encrypt(key string, cipherSuite CipherSuite, d any) (string, error) {
-	if key == "" {
-		return "", errors.New("key is empty")
+	if len(key) < minKeyLength {
+		return "", fmt.Errorf("key must be at least %d bytes", minKeyLength)
 	}
 
 	if d == nil {
 		return "", errors.New("data is nil")
 	}
 
+	if !cipherSuite.isValid() {
+		return "", fmt.Errorf("unknown cipher suite: %d", cipherSuite)
+	}
+
 	var err error
-	var data string
+	var hexPayload string
 	// Convert input data to reflect.Value before serialization
-	if data, err = convertValueToHexString(reflect.ValueOf(d)); err != nil {
+	if hexPayload, err = convertValueToHexString(reflect.ValueOf(d)); err != nil {
 		return "", err
 	}
 
-	// A nil nonce makes createCryptoConfig generate a fresh random one per call.
+	// Frame the type tag together with the payload so both are encrypted as one
+	// unit; this keeps the type authenticated by the AEAD and immune to tampering.
+	plaintext := encodeInnerPayload(reflect.TypeOf(d).Kind().String(), hexPayload)
+
+	// A nil salt makes createCryptoConfig generate a fresh random one per call and
+	// return it so it can be stored; the AEAD nonce is derived from it.
 	var cryptoConfig sio.Config
-	if cryptoConfig, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil); err != nil {
+	var salt []byte
+	if cryptoConfig, salt, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil); err != nil {
 		return "", err
 	}
 
 	encryptedData := bytes.NewBuffer(make([]byte, 0))
-	if _, err = sio.Encrypt(encryptedData, bytes.NewBuffer([]byte(data)), cryptoConfig); err != nil {
+	if _, err = sio.Encrypt(encryptedData, bytes.NewBufferString(plaintext), cryptoConfig); err != nil {
 		return "", err
 	}
 
-	// Encode all details in hex before joining together
+	// Encode all details in hex before joining together. Field 2 is the HKDF salt
+	// (the nonce is derived from it); the type tag lives inside the ciphertext.
 	encryptedString := strings.Join(
 		[]string{
 			hex.EncodeToString([]byte{byte(cipherSuite)}),
-			hex.EncodeToString(cryptoConfig.Nonce[:]),
+			hex.EncodeToString(salt),
 			hex.EncodeToString(encryptedData.Bytes()),
-			hex.EncodeToString([]byte(reflect.TypeOf(d).Kind().String())),
 		}, ":",
 	)
 

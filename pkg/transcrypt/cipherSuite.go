@@ -1,5 +1,7 @@
 package transcrypt
 
+import "fmt"
+
 const (
 	AES_256_GCM CipherSuite = iota
 	CHACHA20_POLY1305
@@ -9,15 +11,29 @@ const (
 // It is based on the types available in github.com/minio/sio .
 type CipherSuite byte
 
+// isValid reports whether c is one of the known cipher suites. It guards against
+// callers passing an out-of-range value (e.g. CipherSuite(99)), which would
+// otherwise only fail deep inside sio with an opaque error.
+func (c CipherSuite) isValid() bool {
+	switch c {
+	case AES_256_GCM, CHACHA20_POLY1305:
+		return true
+	default:
+		return false
+	}
+}
+
 // GetCipherSuite converts a string into its respective CipherSuite.
-// It returns CHACHA20_POLY1305 by default if the string cannot be converted.
-func GetCipherSuite(s string) CipherSuite {
+// It returns an error if the string does not name a known cipher suite, rather
+// than silently falling back to a default, so a caller-supplied typo cannot
+// select an unintended cipher.
+func GetCipherSuite(s string) (CipherSuite, error) {
 	switch s {
 	case "AES_256_GCM":
-		return AES_256_GCM
+		return AES_256_GCM, nil
 	case "CHACHA20_POLY1305":
-		return CHACHA20_POLY1305
+		return CHACHA20_POLY1305, nil
 	default:
-		return CHACHA20_POLY1305
+		return 0, fmt.Errorf("unknown cipher suite %q", s)
 	}
 }

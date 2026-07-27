@@ -24,7 +24,9 @@ import "github.com/jantytgat/go-transcrypt"
 
 ### Encryption key
 
-The encryption key is a string used to encrypt the data with.
+The encryption key is a string used to encrypt the data with. `Encrypt` requires it
+to be at least 16 bytes; HKDF stretches the key but cannot add entropy, so a short
+key would weaken every ciphertext.
 A function `CreateHexKey(byteSize int)` is available to create a random key from `byteSize`
 cryptographically secure random bytes (minimum 16), returned as a hex-encoded string.
 
@@ -36,11 +38,13 @@ if key, err = transcrypt.CreateHexKey(32); err != nil {
 }
 ```
 
-### Nonce
+### Salt and nonce
 
-No salt or nonce needs to be supplied. `Encrypt` generates a fresh random nonce
-for every call and stores it in the output, so encrypting the same value twice
-never produces the same result and the `(key, nonce)` pair is never reused.
+No salt or nonce needs to be supplied. `Encrypt` generates a fresh random 256-bit
+salt for every call and stores it in the output; both the encryption key and the
+AEAD nonce are derived from that salt via HKDF. Encrypting the same value twice
+never produces the same result, and because the key is derived from a 256-bit salt
+it is unique per message, so the `(key, nonce)` pair is never reused.
 
 ## Operations
 
@@ -56,6 +60,9 @@ The following data types are supported for encryption:
 
 Composite and reference types (slices other than `[]byte`, arrays, maps, structs,
 channels, functions, pointers) are not supported and return an error.
+
+A nil `[]byte` decrypts back to an empty, non-nil `[]byte`: the encoded format does
+not distinguish the two, so test for `len(b) == 0` rather than `b == nil`.
 
 ### Encrypt
 
