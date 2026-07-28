@@ -3,7 +3,8 @@
 This library encrypts a typed value into a single hex-encoded, colon-delimited string for safe on-disk storage, and decrypts that string back to the original value. It supports the Go scalar types plus `[]byte` (see [Operations](#operations)).
 A single generic `Encrypt`/`Decrypt` pair serves every shape: the type
 parameter selects the mode. A string target encrypts a single value; a struct
-target encrypts field by field into a mirror type (see [Structs](#structs)).
+target encrypts field by field into a mirror type (see [Structs](#structs)); a
+`File` target streams a file on disk through the cipher (see [Files](#files)).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jantytgat/go-transcrypt.svg)](https://pkg.go.dev/github.com/jantytgat/go-transcrypt)
 
@@ -137,9 +138,41 @@ dropped silently. Unexported fields are ignored (like `encoding/json`). Nil
 pointers, slices, and maps are preserved as nil. `Ciphertext` is a string
 underneath, so encrypted structs marshal naturally to JSON or YAML.
 
+## Files
+
+Naming `transcrypt.File` as the target encrypts or decrypts a file on disk.
+The file's content is streamed directly through the cipher (in 64 KiB
+authenticated packages), so memory use stays constant regardless of file size.
+The output is a compact binary format — a small plaintext header (magic bytes,
+format version, cipher suite, and salt) followed by the raw ciphertext stream —
+rather than the hex-encoded string format, which would double the size and
+require buffering the whole file.
+
+```go
+// Encrypt to a separate file.
+encrypted, err := transcrypt.Encrypt[transcrypt.File](key, transcrypt.AES_256_GCM,
+	transcrypt.File{Source: "data.db", Target: "data.db.enc"})
+
+// Decrypt it back.
+restored, err := transcrypt.Decrypt[transcrypt.File](key,
+	transcrypt.File{Source: "data.db.enc", Target: "data.db"})
+
+// An empty Target means in-place: the result replaces the source file.
+_, err = transcrypt.Encrypt[transcrypt.File](key, transcrypt.AES_256_GCM,
+	transcrypt.File{Source: "data.db"})
+```
+
+The result is always written to a temporary file in the target's directory and
+atomically renamed over the target on success, so a failed operation (wrong
+key, tampered data, disk full) never destroys the original — this is also what
+makes in-place operation safe. The target file keeps the source file's
+permission bits. Any tampering — including truncation — fails decryption, and
+ciphertext can never be moved between the string and file formats: their keys
+are derived with different HKDF domain separation.
+
 ## Example
 
-Two examples are available in the [examples](https://github.com/jantytgat/go-transcrypt/tree/main/examples)
+Three examples are available in the [examples](https://github.com/jantytgat/go-transcrypt/tree/main/examples)
 directory:
 
 - [simple](https://github.com/jantytgat/go-transcrypt/tree/main/examples/simple)
@@ -149,3 +182,6 @@ directory:
 - [structs](https://github.com/jantytgat/go-transcrypt/tree/main/examples/structs)
   encrypts a nested struct (including a slice of structs and a map) into its
   mirror type and back using `Encrypt`/`Decrypt` with struct type parameters.
+- [files](https://github.com/jantytgat/go-transcrypt/tree/main/examples/files)
+  streams a file through `Encrypt`/`Decrypt` with the `File` type parameter,
+  both to a separate target and in place.
