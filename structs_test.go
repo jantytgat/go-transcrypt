@@ -328,6 +328,14 @@ func TestStructTopLevelValidation(t *testing.T) {
 	if _, err := Decrypt[string](testKey, E{}); err == nil {
 		t.Error("expected error when decrypting a struct into a string target")
 	}
+	// A target identical to the input type would copy the value verbatim — a
+	// silent no-op that looks like a successful operation — so it is rejected.
+	if _, err := Encrypt[P](testKey, AES_256_GCM, P{A: "x"}); err == nil {
+		t.Error("expected error when the encryption target equals the plain type")
+	}
+	if _, err := Decrypt[E](testKey, E{A: "x"}); err == nil {
+		t.Error("expected error when the decryption target equals the encrypted type")
+	}
 }
 
 func TestStructShortKeyFails(t *testing.T) {

@@ -39,8 +39,10 @@ import (
 //
 // It returns an error if the key is shorter than minKeyLength bytes or the
 // data is nil, if the cipher suite is unknown, or if d does not fit the target
-// type E. A fresh random salt is generated for every encrypted value, so
-// encrypting twice never reuses the same (key, nonce) pair.
+// type E. A struct target identical to d's own type is also an error: it would
+// copy the value verbatim rather than encrypt anything. A fresh random salt is
+// generated for every encrypted value, so encrypting twice never reuses the
+// same (key, nonce) pair.
 func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
 	var zero E
 	encType := reflect.TypeOf((*E)(nil)).Elem()
@@ -73,6 +75,13 @@ func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
 		plainValue := reflect.ValueOf(d)
 		if plainValue.Kind() != reflect.Struct {
 			return zero, fmt.Errorf("plain value must be a struct, got %T", d)
+		}
+		// Identical types are copied verbatim by the walker, which is correct for
+		// nested fields but means a top-level call with E == d's type would
+		// return the plaintext unchanged while looking like a successful
+		// encryption. Reject that instead of silently not encrypting.
+		if plainValue.Type() == encType {
+			return zero, fmt.Errorf("encryption target %s is the plain type itself: nothing would be encrypted; use a mirror struct with Ciphertext fields", encType)
 		}
 		out, err := encryptValue(key, cipherSuite, plainValue, encType, "")
 		if err != nil {
@@ -141,6 +150,11 @@ func Decrypt[P any](key string, data any) (P, error) {
 		encValue := reflect.ValueOf(data)
 		if encValue.Kind() != reflect.Struct {
 			return zero, fmt.Errorf("encrypted value must be a struct, got %T", data)
+		}
+		// Mirror of the guard in Encrypt: P == data's type would copy the value
+		// verbatim without decrypting anything.
+		if encValue.Type() == plainType {
+			return zero, fmt.Errorf("decryption target %s is the encrypted type itself: nothing would be decrypted; use the plain mirror struct", plainType)
 		}
 		out, err := decryptValue(key, encValue, plainType, "")
 		if err != nil {
