@@ -2,6 +2,29 @@ package transcrypt
 
 import "testing"
 
+func TestCipherSuiteString(t *testing.T) {
+	tests := []struct {
+		suite CipherSuite
+		want  string
+	}{
+		{AES_256_GCM, "AES_256_GCM"},
+		{CHACHA20_POLY1305, "CHACHA20_POLY1305"},
+		{CipherSuite(99), "CipherSuite(99)"},
+	}
+	for _, tt := range tests {
+		if got := tt.suite.String(); got != tt.want {
+			t.Errorf("CipherSuite(%d).String() = %q, want %q", byte(tt.suite), got, tt.want)
+		}
+	}
+	// String and GetCipherSuite must stay inverse for the known suites.
+	for _, suite := range []CipherSuite{AES_256_GCM, CHACHA20_POLY1305} {
+		got, err := GetCipherSuite(suite.String())
+		if err != nil || got != suite {
+			t.Errorf("GetCipherSuite(%q) = %v, %v; want %v", suite.String(), got, err, suite)
+		}
+	}
+}
+
 func TestGetCipherSuite(t *testing.T) {
 	type args struct {
 		s string

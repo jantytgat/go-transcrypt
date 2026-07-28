@@ -240,5 +240,12 @@ func transformFile(f File, transform func(src, dst *os.File) error) (err error) 
 	if err = os.Rename(tmp.Name(), f.Target); err != nil {
 		return fmt.Errorf("cannot replace target file: %w", err)
 	}
+	// Sync the directory so the rename itself survives a crash. Best effort:
+	// the file data is already synced, and directory handles cannot be synced
+	// on every platform (notably Windows), so a failure here is not an error.
+	if dir, dirErr := os.Open(filepath.Dir(f.Target)); dirErr == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
 	return nil
 }
