@@ -10,8 +10,8 @@ import (
 
 func main() {
 	var err error
-	var key string
-	if key, err = transcrypt.CreateHexKey(32); err != nil {
+	var key []byte
+	if key, err = transcrypt.CreateKey(32); err != nil {
 		panic(err)
 	}
 

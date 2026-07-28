@@ -43,7 +43,7 @@ import (
 // copy the value verbatim rather than encrypt anything. A fresh random salt is
 // generated for every encrypted value, so encrypting twice never reuses the
 // same (key, nonce) pair.
-func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
+func Encrypt[E any](key []byte, cipherSuite CipherSuite, d any) (E, error) {
 	var zero E
 	encType := reflect.TypeOf((*E)(nil)).Elem()
 
@@ -110,7 +110,7 @@ func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
 // Calls name the target explicitly: Decrypt[any](key, s) keeps the stored
 // type, Decrypt[int64](key, s) enforces it, Decrypt[Data](key, secureData)
 // rebuilds a struct, Decrypt[File](key, File{Source: path}) restores a file.
-func Decrypt[P any](key string, data any) (P, error) {
+func Decrypt[P any](key []byte, data any) (P, error) {
 	var zero P
 	plainType := reflect.TypeOf((*P)(nil)).Elem()
 
@@ -206,8 +206,8 @@ func fitValue(v reflect.Value, target reflect.Type) (reflect.Value, error) {
 // decryptScalar decrypts a supplied hex-encoded data string using the supplied secret key.
 // It will return an error if either the key or the data is empty.
 // If the hex-encoded string data cannot be converted into proper encrypted data, decryption will also fail with an error.
-func decryptScalar(key string, data string) (any, error) {
-	if key == "" {
+func decryptScalar(key []byte, data string) (any, error) {
+	if len(key) == 0 {
 		return nil, errors.New("key is empty")
 	}
 	if data == "" {
@@ -253,7 +253,7 @@ func decryptScalar(key string, data string) (any, error) {
 // Additionally, if the necessary cryptographic configuration cannot be created using the supplied cipherSuite, it will return an error.
 // A fresh random nonce is generated for every call, so encrypting twice never
 // reuses the same (key, nonce) pair.
-func encryptScalar(key string, cipherSuite CipherSuite, d any) (string, error) {
+func encryptScalar(key []byte, cipherSuite CipherSuite, d any) (string, error) {
 	if len(key) < minKeyLength {
 		return "", fmt.Errorf("key must be at least %d bytes", minKeyLength)
 	}

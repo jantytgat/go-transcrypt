@@ -8,8 +8,8 @@ import (
 
 func main() {
 	var err error
-	var key string
-	if key, err = transcrypt.CreateHexKey(32); err != nil {
+	var key []byte
+	if key, err = transcrypt.CreateKey(32); err != nil {
 		panic(err)
 	}
 
@@ -56,7 +56,7 @@ func main() {
 	fmt.Printf("Typed decrypt: %d (%T)\n", answer, answer)
 }
 
-func demo(key string, suite transcrypt.CipherSuite, input any) {
+func demo(key []byte, suite transcrypt.CipherSuite, input any) {
 	fmt.Printf("Input:     %v (%T)\n", input, input)
 
 	var err error

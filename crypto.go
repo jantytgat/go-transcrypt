@@ -3,7 +3,6 @@ package transcrypt
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -15,26 +14,39 @@ import (
 
 // minKeyLength is the minimum accepted length, in bytes, for a caller-supplied
 // encryption key. HKDF stretches the key but cannot add entropy, so a floor here
-// guards against trivially weak keys reaching Encrypt. It matches CreateHexKey's
+// guards against trivially weak keys reaching Encrypt. It matches CreateKey's
 // 16-byte minimum. It is enforced on encryption only: Decrypt stays able to read
 // data produced by any key so existing ciphertext never becomes unreadable.
 const minKeyLength = 16
 
-// CreateHexKey generates a random hex-encoded key which can be used for encryption.
-// It reads byteSize cryptographically secure random bytes and hex-encodes them.
-// The key is used purely as high-entropy input keying material for HKDF, so byteSize
-// is the number of random bytes and must be at least 16 (128 bits of entropy).
-func CreateHexKey(byteSize int) (string, error) {
+// CreateKey generates a random key which can be used for encryption.
+// It reads byteSize cryptographically secure random bytes and returns them
+// as a []byte. The key is used purely as high-entropy input keying material
+// for HKDF, so byteSize is the number of random bytes and must be at least 16
+// (128 bits of entropy). The key is returned as raw bytes so it can be zeroed
+// with ClearKey(key) when no longer needed. For storage or display,
+// hex-encode it: hex.EncodeToString(key).
+func CreateKey(byteSize int) ([]byte, error) {
 	if byteSize < 16 {
-		return "", errors.New("byte size must be at least 16")
+		return nil, errors.New("byte size must be at least 16")
 	}
 
 	b := make([]byte, byteSize)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return "", fmt.Errorf("failed to read random data for key: %w", err)
+		return nil, fmt.Errorf("failed to read random data for key: %w", err)
 	}
 
-	return hex.EncodeToString(b), nil
+	return b, nil
+}
+
+// ClearKey zeroes the key material so it does not linger in memory longer
+// than needed. Call this when the key is no longer needed. This is
+// best-effort: it clears the slice's backing array, but cannot reach copies
+// the runtime or earlier code may have made elsewhere.
+func ClearKey(key []byte) {
+	for i := range key {
+		key[i] = 0
+	}
 }
 
 // saltLength is the size, in bytes, of the random HKDF salt generated per
@@ -67,8 +79,8 @@ const minSaltLength = 16
 //
 // It returns an error if key or cipher is empty, or if a supplied salt is shorter
 // than minSaltLength bytes.
-func createCryptoConfig(key string, cipher []byte, salt []byte, info []byte) (sio.Config, []byte, error) {
-	if key == "" {
+func createCryptoConfig(key []byte, cipher []byte, salt []byte, info []byte) (sio.Config, []byte, error) {
+	if len(key) == 0 {
 		return sio.Config{}, nil, errors.New("key is empty")
 	}
 
@@ -91,7 +103,7 @@ func createCryptoConfig(key string, cipher []byte, salt []byte, info []byte) (si
 
 	// Derive the encryption key and the AEAD nonce from a single HKDF stream: the
 	// first 32 bytes are the key, the next 12 are the nonce.
-	kdf := hkdf.New(sha256.New, []byte(key), salt, info)
+	kdf := hkdf.New(sha256.New, key, salt, info)
 	var derived [32 + 12]byte
 	if _, err = io.ReadFull(kdf, derived[:]); err != nil {
 		return sio.Config{}, nil, fmt.Errorf("failed to derive key material: %w", err)

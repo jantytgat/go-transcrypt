@@ -1,14 +1,23 @@
 package transcrypt
 
 import (
+	"encoding/hex"
 	"reflect"
 	"strings"
 	"testing"
 )
 
-// testKey is a valid hex-encoded key reused across round-trip tests so we do not
-// pay for RSA key generation in every case.
-const testKey = "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a"
+// testKey is a valid key reused across round-trip tests so we do not pay for
+// key generation in every case. Stored as hex for readability; decoded at init.
+var testKey []byte
+
+func init() {
+	raw, err := hex.DecodeString("2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a")
+	if err != nil {
+		panic(err)
+	}
+	testKey = raw
+}
 
 // TestEncryptDecryptRoundTrip exercises the full Encrypt -> Decrypt path for
 // every supported type across both cipher suites, catching converter drift that
