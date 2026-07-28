@@ -24,7 +24,7 @@ A `Makefile` wraps the common targets: `make test` (race), `make coverage`
 (func report), `make example`, `make vet`, `make build`, `make coverage-html`,
 and `make help`.
 
-CI runs `go vet` + `go test -race -cover` on push/PR to `main` (`.github/workflows/test.yml`) and CodeQL security analysis (`.github/workflows/codeql.yml`). Still run `go test ./...` locally before pushing.
+CI runs `go vet` + `go test -race -cover` plus a `govulncheck` job on push/PR to `main` (`.github/workflows/test.yml`) and CodeQL security analysis (`.github/workflows/codeql.yml`). Still run `go test ./...` locally before pushing.
 
 ## Architecture
 
