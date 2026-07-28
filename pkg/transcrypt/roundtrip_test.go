@@ -50,11 +50,11 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 	for _, s := range suites {
 		for _, v := range values {
 			t.Run(s.name+"/"+v.name, func(t *testing.T) {
-				encrypted, err := Encrypt(testKey, s.suite, v.in)
+				encrypted, err := Encrypt[string](testKey, s.suite, v.in)
 				if err != nil {
 					t.Fatalf("Encrypt() error = %v", err)
 				}
-				got, err := Decrypt(testKey, encrypted)
+				got, err := Decrypt[any](testKey, encrypted)
 				if err != nil {
 					t.Fatalf("Decrypt() error = %v", err)
 				}
@@ -79,7 +79,7 @@ func TestEncryptUnsupportedType(t *testing.T) {
 		&n,
 		ch,
 	} {
-		if _, err := Encrypt(testKey, AES_256_GCM, v); err == nil {
+		if _, err := Encrypt[string](testKey, AES_256_GCM, v); err == nil {
 			t.Errorf("Encrypt(%T) expected error, got nil", v)
 		}
 	}
@@ -91,11 +91,11 @@ func TestEncryptUnsupportedType(t *testing.T) {
 func TestEncryptNonceUniqueness(t *testing.T) {
 	const value = "sensitive value"
 
-	a, err := Encrypt(testKey, AES_256_GCM, value)
+	a, err := Encrypt[string](testKey, AES_256_GCM, value)
 	if err != nil {
 		t.Fatalf("Encrypt() first call error = %v", err)
 	}
-	b, err := Encrypt(testKey, AES_256_GCM, value)
+	b, err := Encrypt[string](testKey, AES_256_GCM, value)
 	if err != nil {
 		t.Fatalf("Encrypt() second call error = %v", err)
 	}
@@ -111,7 +111,7 @@ func TestEncryptNonceUniqueness(t *testing.T) {
 	}
 
 	for _, enc := range []string{a, b} {
-		got, err := Decrypt(testKey, enc)
+		got, err := Decrypt[any](testKey, enc)
 		if err != nil {
 			t.Fatalf("Decrypt() error = %v", err)
 		}
@@ -127,7 +127,7 @@ func TestEncryptNonceUniqueness(t *testing.T) {
 // share an 8-byte payload, so before the tag was authenticated this swap silently
 // returned a bogus float; now it must be rejected.
 func TestDecryptRejectsTamperedTypeTag(t *testing.T) {
-	encrypted, err := Encrypt(testKey, AES_256_GCM, int64(4614256656552045848))
+	encrypted, err := Encrypt[string](testKey, AES_256_GCM, int64(4614256656552045848))
 	if err != nil {
 		t.Fatalf("Encrypt() error = %v", err)
 	}
@@ -151,7 +151,7 @@ func TestDecryptRejectsTamperedTypeTag(t *testing.T) {
 	parts[2] = string(ct)
 	tampered := strings.Join(parts, ":")
 
-	if _, err := Decrypt(testKey, tampered); err == nil {
+	if _, err := Decrypt[any](testKey, tampered); err == nil {
 		t.Error("Decrypt() accepted tampered ciphertext, want error")
 	}
 }
@@ -159,7 +159,7 @@ func TestDecryptRejectsTamperedTypeTag(t *testing.T) {
 // TestEncryptedFormatHasThreeFields locks in the authenticated wire format: the
 // type tag must not reappear as a fourth, tamperable plaintext field.
 func TestEncryptedFormatHasThreeFields(t *testing.T) {
-	encrypted, err := Encrypt(testKey, AES_256_GCM, "hello world")
+	encrypted, err := Encrypt[string](testKey, AES_256_GCM, "hello world")
 	if err != nil {
 		t.Fatalf("Encrypt() error = %v", err)
 	}
@@ -173,11 +173,11 @@ func TestEncryptedFormatHasThreeFields(t *testing.T) {
 // not distinguish nil from empty, and an empty slice is the canonical form; a
 // caller must treat len == 0 rather than == nil as "no bytes".
 func TestEncryptNilByteSliceRoundTripsToEmpty(t *testing.T) {
-	encrypted, err := Encrypt(testKey, AES_256_GCM, []byte(nil))
+	encrypted, err := Encrypt[string](testKey, AES_256_GCM, []byte(nil))
 	if err != nil {
 		t.Fatalf("Encrypt() error = %v", err)
 	}
-	got, err := Decrypt(testKey, encrypted)
+	got, err := Decrypt[any](testKey, encrypted)
 	if err != nil {
 		t.Fatalf("Decrypt() error = %v", err)
 	}
@@ -198,5 +198,84 @@ func TestEncryptNilByteSliceRoundTripsToEmpty(t *testing.T) {
 func TestConvertHexStringToValue_ShortBuffer(t *testing.T) {
 	if _, err := convertHexStringToValue("0102", reflect.Int); err == nil {
 		t.Error("convertHexStringToValue(short, int) expected error, got nil")
+	}
+}
+
+// TestTypedDecrypt exercises the typed single-value decryption path: naming a
+// concrete type parameter enforces the kind recovered from the authenticated
+// ciphertext and returns a typed value instead of any.
+func TestTypedDecrypt(t *testing.T) {
+	enc, err := Encrypt[string](testKey, AES_256_GCM, int64(12345))
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
+
+	n, err := Decrypt[int64](testKey, enc)
+	if err != nil {
+		t.Fatalf("Decrypt[int64]() error = %v", err)
+	}
+	if n != 12345 {
+		t.Errorf("Decrypt[int64]() = %d, want 12345", n)
+	}
+
+	// A named type of the stored kind is converted.
+	type Counter int64
+	c, err := Decrypt[Counter](testKey, enc)
+	if err != nil {
+		t.Fatalf("Decrypt[Counter]() error = %v", err)
+	}
+	if c != 12345 {
+		t.Errorf("Decrypt[Counter]() = %d, want 12345", c)
+	}
+
+	// A kind mismatch with the authenticated kind is an error.
+	if _, err := Decrypt[string](testKey, enc); err == nil {
+		t.Error("Decrypt[string]() of an int64 ciphertext expected error, got nil")
+	}
+	if _, err := Decrypt[float64](testKey, enc); err == nil {
+		t.Error("Decrypt[float64]() of an int64 ciphertext expected error, got nil")
+	}
+}
+
+// TestStringKindTargets pins that any string-kind type works as the target of
+// single-value encryption, and that string-kind values (like Ciphertext) are
+// accepted as encoded input on decryption.
+func TestStringKindTargets(t *testing.T) {
+	enc, err := Encrypt[Ciphertext](testKey, AES_256_GCM, "secret")
+	if err != nil {
+		t.Fatalf("Encrypt[Ciphertext]() error = %v", err)
+	}
+	if !regexEncryptedString.MatchString(string(enc)) {
+		t.Fatalf("Encrypt[Ciphertext]() produced malformed output: %q", enc)
+	}
+
+	// Decrypt accepts the Ciphertext directly, without converting to string.
+	got, err := Decrypt[string](testKey, enc)
+	if err != nil {
+		t.Fatalf("Decrypt[string]() error = %v", err)
+	}
+	if got != "secret" {
+		t.Errorf("Decrypt[string]() = %q, want %q", got, "secret")
+	}
+}
+
+// TestInvalidTargets locks in the dispatch rules: the type parameter must name
+// a string type or a mirror struct on encryption, and single-value decryption
+// requires string-kind input data.
+func TestInvalidTargets(t *testing.T) {
+	if _, err := Encrypt[any](testKey, AES_256_GCM, "x"); err == nil {
+		t.Error("Encrypt[any]() expected error, got nil")
+	}
+	if _, err := Encrypt[int](testKey, AES_256_GCM, 1); err == nil {
+		t.Error("Encrypt[int]() expected error, got nil")
+	}
+	if _, err := Encrypt[[]byte](testKey, AES_256_GCM, []byte{1}); err == nil {
+		t.Error("Encrypt[[]byte]() expected error, got nil")
+	}
+	if _, err := Decrypt[any](testKey, 12); err == nil {
+		t.Error("Decrypt[any]() with non-string data expected error, got nil")
+	}
+	if _, err := Decrypt[int](testKey, 12); err == nil {
+		t.Error("Decrypt[int]() with non-string data expected error, got nil")
 	}
 }

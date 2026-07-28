@@ -42,6 +42,18 @@ func main() {
 
 	fmt.Println("### CHACHA20_POLY1305 works the same way ###")
 	demo(key, transcrypt.CHACHA20_POLY1305, "hello chacha")
+
+	// Naming a concrete type parameter returns a typed value directly; the
+	// kind stored inside the authenticated ciphertext must match.
+	encrypted, err := transcrypt.Encrypt[string](key, transcrypt.AES_256_GCM, int64(42))
+	if err != nil {
+		panic(err)
+	}
+	answer, err := transcrypt.Decrypt[int64](key, encrypted)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Typed decrypt: %d (%T)\n", answer, answer)
 }
 
 func demo(key string, suite transcrypt.CipherSuite, input any) {
@@ -49,13 +61,13 @@ func demo(key string, suite transcrypt.CipherSuite, input any) {
 
 	var err error
 	var encrypted string
-	if encrypted, err = transcrypt.Encrypt(key, suite, input); err != nil {
+	if encrypted, err = transcrypt.Encrypt[string](key, suite, input); err != nil {
 		panic(err)
 	}
 	fmt.Println("Encrypted:", encrypted)
 
 	var decrypted any
-	if decrypted, err = transcrypt.Decrypt(key, encrypted); err != nil {
+	if decrypted, err = transcrypt.Decrypt[any](key, encrypted); err != nil {
 		panic(err)
 	}
 	fmt.Printf("Decrypted: %v (%T)\n", decrypted, decrypted)

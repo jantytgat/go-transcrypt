@@ -1,8 +1,8 @@
 GO ?= go
 PKG := ./...
-# The library is the whole product surface; examples/simple is an untested demo,
-# so coverage is measured against the package to keep the number meaningful.
-COVERPKG := ./pkg/transcrypt/
+# The library is the whole product surface; the examples are untested demos,
+# so coverage is measured against the packages to keep the number meaningful.
+COVERPKG := ./pkg/...
 COVERPROFILE := coverage.out
 
 .DEFAULT_GOAL := test
@@ -36,6 +36,10 @@ coverage-html: coverage ## Generate and open an HTML coverage report
 .PHONY: example
 example: ## Run the usage example
 	$(GO) run ./examples/simple
+
+.PHONY: example-structs
+example-structs: ## Run the struct encryption example
+	$(GO) run ./examples/structs
 
 .PHONY: clean
 clean: ## Remove generated artifacts
