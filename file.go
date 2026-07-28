@@ -218,8 +218,9 @@ func transformFile(f File, transform func(src, dst *os.File) error) (err error) 
 	if tmp, err = os.CreateTemp(filepath.Dir(f.Target), ".transcrypt-*"); err != nil {
 		return fmt.Errorf("cannot create temporary file: %w", err)
 	}
-	// Apply restrictive permissions immediately so encrypted data is never
-	// world-readable, even if the source file had permissive mode.
+	// os.CreateTemp already creates the file with mode 0600; this chmod pins
+	// that invariant explicitly rather than relying on it, so the temp file
+	// stays private until the final chmod below applies Source's mode.
 	if err = tmp.Chmod(0o600); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())

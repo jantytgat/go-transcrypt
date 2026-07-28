@@ -88,6 +88,43 @@ func TestDecrypt(t *testing.T) {
 	}
 }
 
+// TestDecrypt_LegacyStringKey pins the migration promise of the []byte key
+// change: ciphertext produced by the old string-key API stays readable by
+// passing []byte(oldStringKey). The key and both ciphertexts are frozen
+// pre-migration vectors (the string-key era fed the string's bytes to HKDF,
+// so []byte of that same string derives the identical key) and must never be
+// regenerated — regenerating them would turn this back into a round-trip test.
+func TestDecrypt_LegacyStringKey(t *testing.T) {
+	const legacyStringKey = "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a"
+	tests := []struct {
+		name string
+		data string
+		want any
+	}{
+		{
+			name: "legacy_string",
+			data: "00:1dd908719ff16e1f5d701e97f3a0345ac08d888a24080b50482108a5ae85a4e8:20001c00aa2c6d981e121c07b6e2ee3f259b1c63e4a52bb6838b8aa300adc075b5f074a02d5ca88c0c8c658f5fb0aa09f4ffe9bc6e9c27166c4af8135f",
+			want: "hello world",
+		},
+		{
+			name: "legacy_int",
+			data: "00:10c26724d88604f99d29f2882bf2177c028ffeece92656004da06f8fc0263242:20001300cd7cb3d924d15379607a23ee1dd3edb91f5cec25fb7fdadbc4357df92d68a924719a1306afaa9e5c50732b3f03b9ea74",
+			want: 123456,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Decrypt[any]([]byte(legacyStringKey), tt.data)
+			if err != nil {
+				t.Fatalf("Decrypt() error = %v, want legacy ciphertext to stay readable", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Decrypt() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEncrypt(t *testing.T) {
 	type args struct {
 		key         []byte
