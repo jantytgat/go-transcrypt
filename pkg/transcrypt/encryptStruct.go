@@ -1,9 +1,7 @@
-package cryptostruct
+package transcrypt
 
 import (
 	"reflect"
-
-	"github.com/jantytgat/go-transcrypt/pkg/transcrypt"
 )
 
 // encryptValue transforms a plain value into the encrypted type encType. The
@@ -11,7 +9,7 @@ import (
 // copy verbatim, and matching composite kinds recurse. Any other combination
 // is a mismatch between the plain struct and its mirror and returns an error
 // carrying the field path.
-func encryptValue(key string, cipherSuite transcrypt.CipherSuite, plain reflect.Value, encType reflect.Type, path string) (reflect.Value, error) {
+func encryptValue(key string, cipherSuite CipherSuite, plain reflect.Value, encType reflect.Type, path string) (reflect.Value, error) {
 	// Identical types are copied verbatim. This is checked before the
 	// Ciphertext leaf case so a Ciphertext-typed field appearing on both
 	// sides is copied, not encrypted a second time.
@@ -20,7 +18,7 @@ func encryptValue(key string, cipherSuite transcrypt.CipherSuite, plain reflect.
 	}
 
 	if encType == ciphertextType {
-		encrypted, err := transcrypt.Encrypt(key, cipherSuite, plain.Interface())
+		encrypted, err := encryptScalar(key, cipherSuite, plain.Interface())
 		if err != nil {
 			return reflect.Value{}, pathErrorf(path, "encrypt failed: %w", err)
 		}
@@ -96,7 +94,7 @@ func encryptValue(key string, cipherSuite transcrypt.CipherSuite, plain reflect.
 // encryptStruct maps every exported field of the plain struct onto the field
 // with the same name in the encrypted struct. Matching is strict in both
 // directions so no exported field can be dropped silently.
-func encryptStruct(key string, cipherSuite transcrypt.CipherSuite, plain reflect.Value, encType reflect.Type, path string) (reflect.Value, error) {
+func encryptStruct(key string, cipherSuite CipherSuite, plain reflect.Value, encType reflect.Type, path string) (reflect.Value, error) {
 	plainType := plain.Type()
 	plainFields := exportedFieldIndex(plainType)
 

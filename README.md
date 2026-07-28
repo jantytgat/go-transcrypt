@@ -1,8 +1,9 @@
 # go-transcrypt
 
 This library encrypts a typed value into a single hex-encoded, colon-delimited string for safe on-disk storage, and decrypts that string back to the original value. It supports the Go scalar types plus `[]byte` (see [Operations](#operations)).
-Structs can be encrypted field by field into a mirror type via the
-`cryptostruct` package (see [Structs](#structs)).
+A single generic `Encrypt`/`Decrypt` pair serves every shape: the type
+parameter selects the mode. A string target encrypts a single value; a struct
+target encrypts field by field into a mirror type (see [Structs](#structs)).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jantytgat/go-transcrypt.svg)](https://pkg.go.dev/github.com/jantytgat/go-transcrypt)
 
@@ -68,33 +69,46 @@ not distinguish the two, so test for `len(b) == 0` rather than `b == nil`.
 
 ### Encrypt
 
+The type parameter names the encryption target; for single values it is a
+string type (any named type of kind string works, e.g. `transcrypt.Ciphertext`):
+
 ```go
 var inputString = "hello world"
 var encryptedString string
-if encryptedString, err = transcrypt.Encrypt(key, transcrypt.AES_256_GCM, inputString); err != nil {
+if encryptedString, err = transcrypt.Encrypt[string](key, transcrypt.AES_256_GCM, inputString); err != nil {
 	panic(err)
 }
 ```
 
 ### Decrypt
 
-`Decrypt` returns the value as `any`; type-assert it back to the original type.
+`Decrypt[any]` returns the value as `any`, typed as whatever was stored;
+type-assert it back to the original type. Naming a concrete type instead
+returns a typed value directly — the kind recovered from the authenticated
+ciphertext must match (named types of the same kind are converted, a kind
+mismatch is an error):
 
 ```go
 var decryptedString any
-if decryptedString, err = transcrypt.Decrypt(key, encryptedString); err != nil {
+if decryptedString, err = transcrypt.Decrypt[any](key, encryptedString); err != nil {
+	panic(err)
+}
+
+// Or typed, without an assertion:
+var typedString string
+if typedString, err = transcrypt.Decrypt[string](key, encryptedString); err != nil {
 	panic(err)
 }
 ```
 
 ## Structs
 
-The `cryptostruct` package encrypts structs field by field on top of
-`transcrypt`. You define a "plain" struct and an equivalent "encrypted" mirror
-struct; the mirror's field types decide what happens to each field — there are
-no struct tags and no interfaces to implement:
+Naming a struct type as the target of `Encrypt`/`Decrypt` encrypts structs
+field by field. You define a "plain" struct and an equivalent "encrypted"
+mirror struct; the mirror's field types decide what happens to each field —
+there are no struct tags and no interfaces to implement:
 
-- a mirror field typed `cryptostruct.Ciphertext` is encrypted individually
+- a mirror field typed `transcrypt.Ciphertext` is encrypted individually
   with `transcrypt.Encrypt` (own salt, derived key, and nonce per field; the
   original type travels inside the authenticated ciphertext);
 - a mirror field with the identical type as the plain field is copied
@@ -109,12 +123,12 @@ type Account struct {
 }
 
 type SecureAccount struct {
-	Password cryptostruct.Ciphertext // encrypted
-	Enabled  bool                    // copied as-is
+	Password transcrypt.Ciphertext // encrypted
+	Enabled  bool                  // copied as-is
 }
 
-secure, err := cryptostruct.Encrypt[SecureAccount](key, transcrypt.AES_256_GCM, account)
-restored, err := cryptostruct.Decrypt[Account](key, secure)
+secure, err := transcrypt.Encrypt[SecureAccount](key, transcrypt.AES_256_GCM, account)
+restored, err := transcrypt.Decrypt[Account](key, secure)
 ```
 
 Field matching is by name and strict in both directions: an exported field
@@ -134,4 +148,4 @@ directory:
   `CHACHA20_POLY1305`) in action.
 - [structs](https://github.com/jantytgat/go-transcrypt/tree/main/examples/structs)
   encrypts a nested struct (including a slice of structs and a map) into its
-  mirror type and back using the `cryptostruct` package.
+  mirror type and back using `Encrypt`/`Decrypt` with struct type parameters.

@@ -1,10 +1,8 @@
-package cryptostruct
+package transcrypt
 
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/jantytgat/go-transcrypt/pkg/transcrypt"
 )
 
 // decryptValue transforms an encrypted value back into the plain type
@@ -86,24 +84,20 @@ func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path st
 }
 
 // decryptLeaf decrypts a single Ciphertext field and fits the result into the
-// plain field's type. The value's kind comes from inside the authenticated
-// ciphertext, so it is trusted; converting to a named type of the same kind is
-// allowed, but a kind mismatch with the destination field is an error — a
-// ciphertext cannot be relabeled into a field of a different kind.
+// plain field's type via fitValue: the value's kind comes from inside the
+// authenticated ciphertext, so a ciphertext cannot be relabeled into a field
+// of a different kind.
 func decryptLeaf(key string, enc reflect.Value, plainType reflect.Type, path string) (reflect.Value, error) {
-	decrypted, err := transcrypt.Decrypt(key, string(enc.String()))
+	decrypted, err := decryptScalar(key, enc.String())
 	if err != nil {
 		return reflect.Value{}, pathErrorf(path, "decrypt failed: %w", err)
 	}
 
-	out := reflect.ValueOf(decrypted)
-	if out.Type() == plainType {
-		return out, nil
+	out, err := fitValue(reflect.ValueOf(decrypted), plainType)
+	if err != nil {
+		return reflect.Value{}, pathErrorf(path, "%w", err)
 	}
-	if out.Kind() == plainType.Kind() && out.Type().ConvertibleTo(plainType) {
-		return out.Convert(plainType), nil
-	}
-	return reflect.Value{}, pathErrorf(path, "decrypted value has kind %s, which does not fit plain field type %s", out.Kind(), plainType)
+	return out, nil
 }
 
 // decryptStruct maps every exported field of the encrypted struct onto the

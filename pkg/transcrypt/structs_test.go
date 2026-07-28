@@ -1,14 +1,10 @@
-package cryptostruct
+package transcrypt
 
 import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/jantytgat/go-transcrypt/pkg/transcrypt"
 )
-
-const testKey = "0123456789abcdef0123456789abcdef"
 
 // Inner / SecureInner mirror a nested struct with one encrypted and one
 // plain-copied field.
@@ -75,10 +71,10 @@ func testOuter() Outer {
 	}
 }
 
-func TestEncryptDecryptRoundTrip(t *testing.T) {
+func TestStructRoundTrip(t *testing.T) {
 	in := testOuter()
 
-	enc, err := Encrypt[SecureOuter](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[SecureOuter](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -93,10 +89,10 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 	}
 }
 
-func TestEncryptFieldHandling(t *testing.T) {
+func TestStructFieldHandling(t *testing.T) {
 	in := testOuter()
 
-	enc, err := Encrypt[SecureOuter](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[SecureOuter](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -112,7 +108,7 @@ func TestEncryptFieldHandling(t *testing.T) {
 	}
 	// Every Ciphertext must be a well-formed transcrypt string, decryptable on
 	// its own — fields are encrypted individually.
-	v, err := transcrypt.Decrypt(testKey, string(enc.Inner.Note))
+	v, err := Decrypt[any](testKey, string(enc.Inner.Note))
 	if err != nil {
 		t.Fatalf("field is not independently decryptable: %v", err)
 	}
@@ -122,7 +118,7 @@ func TestEncryptFieldHandling(t *testing.T) {
 	// Same plaintext in different fields must yield different ciphertexts
 	// (fresh salt per field).
 	in2 := in
-	enc2, err := Encrypt[SecureOuter](testKey, transcrypt.AES_256_GCM, in2)
+	enc2, err := Encrypt[SecureOuter](testKey, AES_256_GCM, in2)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -131,10 +127,10 @@ func TestEncryptFieldHandling(t *testing.T) {
 	}
 }
 
-func TestNilValuesPreserved(t *testing.T) {
+func TestStructNilValuesPreserved(t *testing.T) {
 	in := Outer{Blob: []byte{1}} // everything else zero / nil
 
-	enc, err := Encrypt[SecureOuter](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[SecureOuter](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -157,7 +153,7 @@ func TestNilValuesPreserved(t *testing.T) {
 	}
 }
 
-func TestNamedLeafTypes(t *testing.T) {
+func TestStructNamedLeafTypes(t *testing.T) {
 	type UserID int
 	type Login string
 	type User struct {
@@ -170,7 +166,7 @@ func TestNamedLeafTypes(t *testing.T) {
 	}
 
 	in := User{ID: 1234, Login: "jan"}
-	enc, err := Encrypt[SecureUser](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[SecureUser](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -183,7 +179,7 @@ func TestNamedLeafTypes(t *testing.T) {
 	}
 }
 
-func TestUnexportedFieldsIgnored(t *testing.T) {
+func TestStructUnexportedFieldsIgnored(t *testing.T) {
 	type P struct {
 		Name   string
 		hidden string
@@ -194,7 +190,7 @@ func TestUnexportedFieldsIgnored(t *testing.T) {
 	}
 
 	in := P{Name: "visible", hidden: "dropped"}
-	enc, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[E](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -210,7 +206,7 @@ func TestUnexportedFieldsIgnored(t *testing.T) {
 	}
 }
 
-func TestMissingFieldErrors(t *testing.T) {
+func TestStructMissingFieldErrors(t *testing.T) {
 	type P struct {
 		A string
 		B string
@@ -224,47 +220,47 @@ func TestMissingFieldErrors(t *testing.T) {
 		C Ciphertext
 	}
 
-	if _, err := Encrypt[MissingB](testKey, transcrypt.AES_256_GCM, P{}); err == nil {
+	if _, err := Encrypt[MissingB](testKey, AES_256_GCM, P{}); err == nil {
 		t.Error("expected error for plain field missing in encrypted struct")
 	}
-	if _, err := Encrypt[ExtraC](testKey, transcrypt.AES_256_GCM, P{}); err == nil {
+	if _, err := Encrypt[ExtraC](testKey, AES_256_GCM, P{}); err == nil {
 		t.Error("expected error for encrypted field missing in plain struct")
 	}
 }
 
-func TestKindMismatchErrors(t *testing.T) {
+func TestStructKindMismatchErrors(t *testing.T) {
 	type P struct{ A int }
 	type E struct{ A bool }
 
-	if _, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, P{A: 1}); err == nil {
+	if _, err := Encrypt[E](testKey, AES_256_GCM, P{A: 1}); err == nil {
 		t.Error("expected error for kind mismatch between plain and encrypted field")
 	}
 
 	type PSlice struct{ A []int }
 	type ESlice struct{ A []bool }
-	if _, err := Encrypt[ESlice](testKey, transcrypt.AES_256_GCM, PSlice{A: []int{1}}); err == nil {
+	if _, err := Encrypt[ESlice](testKey, AES_256_GCM, PSlice{A: []int{1}}); err == nil {
 		t.Error("expected error for element kind mismatch")
 	}
 }
 
-func TestUnsupportedLeafErrors(t *testing.T) {
+func TestStructUnsupportedLeafErrors(t *testing.T) {
 	// A struct field cannot be flattened into a single Ciphertext: the mirror
 	// must declare a mirrored struct instead.
 	type P struct{ A Inner }
 	type E struct{ A Ciphertext }
-	if _, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, P{}); err == nil {
+	if _, err := Encrypt[E](testKey, AES_256_GCM, P{}); err == nil {
 		t.Error("expected error when encrypting a struct field into a Ciphertext leaf")
 	}
 }
 
-func TestDecryptKindGuard(t *testing.T) {
+func TestStructDecryptKindGuard(t *testing.T) {
 	// Encrypt an int, then try to decrypt it into a struct whose field is a
 	// string: the authenticated kind must win and the call must fail.
 	type PInt struct{ A int }
 	type PString struct{ A string }
 	type E struct{ A Ciphertext }
 
-	enc, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, PInt{A: 7})
+	enc, err := Encrypt[E](testKey, AES_256_GCM, PInt{A: 7})
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -273,9 +269,9 @@ func TestDecryptKindGuard(t *testing.T) {
 	}
 }
 
-func TestWrongKeyFails(t *testing.T) {
+func TestStructWrongKeyFails(t *testing.T) {
 	in := testOuter()
-	enc, err := Encrypt[SecureOuter](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[SecureOuter](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -284,11 +280,11 @@ func TestWrongKeyFails(t *testing.T) {
 	}
 }
 
-func TestTamperedCiphertextFails(t *testing.T) {
+func TestStructTamperedCiphertextFails(t *testing.T) {
 	type P struct{ A string }
 	type E struct{ A Ciphertext }
 
-	enc, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, P{A: "payload"})
+	enc, err := Encrypt[E](testKey, AES_256_GCM, P{A: "payload"})
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -306,18 +302,20 @@ func TestTamperedCiphertextFails(t *testing.T) {
 	}
 }
 
-func TestTopLevelValidation(t *testing.T) {
+func TestStructTopLevelValidation(t *testing.T) {
 	type P struct{ A string }
 	type E struct{ A Ciphertext }
 
-	if _, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, nil); err == nil {
+	if _, err := Encrypt[E](testKey, AES_256_GCM, nil); err == nil {
 		t.Error("expected error for nil plain value")
 	}
-	if _, err := Encrypt[E](testKey, transcrypt.AES_256_GCM, "not a struct"); err == nil {
+	if _, err := Encrypt[E](testKey, AES_256_GCM, "not a struct"); err == nil {
 		t.Error("expected error for non-struct plain value")
 	}
-	if _, err := Encrypt[Ciphertext](testKey, transcrypt.AES_256_GCM, P{}); err == nil {
-		t.Error("expected error for non-struct encrypted type")
+	// A string-kind target selects single-value encryption, which cannot
+	// encrypt a struct.
+	if _, err := Encrypt[Ciphertext](testKey, AES_256_GCM, P{}); err == nil {
+		t.Error("expected error when encrypting a struct into a string target")
 	}
 	if _, err := Decrypt[P](testKey, nil); err == nil {
 		t.Error("expected error for nil encrypted value")
@@ -325,25 +323,27 @@ func TestTopLevelValidation(t *testing.T) {
 	if _, err := Decrypt[P](testKey, 12); err == nil {
 		t.Error("expected error for non-struct encrypted value")
 	}
+	// A string target selects single-value decryption, which needs an
+	// encoded string, not a struct.
 	if _, err := Decrypt[string](testKey, E{}); err == nil {
-		t.Error("expected error for non-struct plain type")
+		t.Error("expected error when decrypting a struct into a string target")
 	}
 }
 
-func TestShortKeyFails(t *testing.T) {
+func TestStructShortKeyFails(t *testing.T) {
 	type P struct{ A string }
 	type E struct{ A Ciphertext }
 
-	if _, err := Encrypt[E]("short", transcrypt.AES_256_GCM, P{A: "x"}); err == nil {
-		t.Error("expected error for key below the transcrypt minimum")
+	if _, err := Encrypt[E]("short", AES_256_GCM, P{A: "x"}); err == nil {
+		t.Error("expected error for key below the encryption minimum")
 	}
 }
 
-func TestErrorPathsAreReported(t *testing.T) {
+func TestStructErrorPathsAreReported(t *testing.T) {
 	type PInner struct{ A Inner }
 	type EInner struct{ A Ciphertext }
 
-	_, err := Encrypt[EInner](testKey, transcrypt.AES_256_GCM, PInner{})
+	_, err := Encrypt[EInner](testKey, AES_256_GCM, PInner{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -352,7 +352,7 @@ func TestErrorPathsAreReported(t *testing.T) {
 	}
 
 	in := testOuter()
-	enc, err := Encrypt[SecureOuter](testKey, transcrypt.AES_256_GCM, in)
+	enc, err := Encrypt[SecureOuter](testKey, AES_256_GCM, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
@@ -366,9 +366,9 @@ func TestErrorPathsAreReported(t *testing.T) {
 	}
 }
 
-func TestChaCha20Suite(t *testing.T) {
+func TestStructChaCha20Suite(t *testing.T) {
 	in := testOuter()
-	enc, err := Encrypt[SecureOuter](testKey, transcrypt.CHACHA20_POLY1305, in)
+	enc, err := Encrypt[SecureOuter](testKey, CHACHA20_POLY1305, in)
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jantytgat/go-transcrypt/pkg/cryptostruct"
 	"github.com/jantytgat/go-transcrypt/pkg/transcrypt"
 )
 
@@ -26,21 +25,21 @@ type Person struct {
 }
 
 // SecureAccount is the encrypted mirror of Account. A field typed
-// cryptostruct.Ciphertext is encrypted; a field with the identical type is
+// transcrypt.Ciphertext is encrypted; a field with the identical type is
 // copied verbatim; mirrored struct/slice/map types recurse.
 type SecureAccount struct {
 	Name     string // NOTE: same type as plain → copied, NOT encrypted
-	Password cryptostruct.Ciphertext
-	PIN      cryptostruct.Ciphertext
+	Password transcrypt.Ciphertext
+	PIN      transcrypt.Ciphertext
 	Enabled  bool
 	Owner    SecurePerson
 	Backups  []SecurePerson
-	Labels   map[string]cryptostruct.Ciphertext
+	Labels   map[string]transcrypt.Ciphertext
 }
 
 // SecurePerson is the encrypted mirror of Person.
 type SecurePerson struct {
-	FullName cryptostruct.Ciphertext
+	FullName transcrypt.Ciphertext
 	Age      int
 }
 
@@ -67,13 +66,13 @@ func main() {
 	dump("Plain", account)
 
 	var secure SecureAccount
-	if secure, err = cryptostruct.Encrypt[SecureAccount](key, transcrypt.AES_256_GCM, account); err != nil {
+	if secure, err = transcrypt.Encrypt[SecureAccount](key, transcrypt.AES_256_GCM, account); err != nil {
 		panic(err)
 	}
 	dump("Encrypted", secure)
 
 	var restored Account
-	if restored, err = cryptostruct.Decrypt[Account](key, secure); err != nil {
+	if restored, err = transcrypt.Decrypt[Account](key, secure); err != nil {
 		panic(err)
 	}
 	dump("Decrypted", restored)
