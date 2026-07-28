@@ -100,7 +100,7 @@ func Test_createCryptoConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, salt, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.salt)
+			cfg, salt, err := createCryptoConfig(tt.args.key, tt.args.cipher, tt.args.salt, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createCryptoConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -243,7 +243,7 @@ func decodeHexString(key string, data string) ([]byte, sio.Config, error) {
 	}
 
 	var cryptoConfig sio.Config
-	if cryptoConfig, _, err = createCryptoConfig(key, cipherSuiteBytes, salt); err != nil {
+	if cryptoConfig, _, err = createCryptoConfig(key, cipherSuiteBytes, salt, nil); err != nil {
 		return nil, sio.Config{}, fmt.Errorf("cannot create crypto config: %w", err)
 	}
 

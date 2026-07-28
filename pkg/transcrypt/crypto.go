@@ -54,6 +54,12 @@ const minSaltLength = 16
 // store it. If salt is nil a fresh random saltLength-byte one is generated (the
 // encryption path); on decryption the salt is passed in from the encoded string.
 //
+// info is the HKDF info parameter and domain-separates the library's container
+// formats: the encoded-string format passes nil (its original derivation, kept
+// for compatibility with existing ciphertext) and the file format passes
+// fileHKDFInfo. Ciphertext lifted out of one container and replayed in the other
+// therefore derives a different key and fails authentication.
+//
 // Deriving the key from a 256-bit salt makes it unique per message with
 // overwhelming probability, so the (key, nonce) pair can never repeat even though
 // the nonce itself is only 96 bits. This is what raises the safe-message ceiling
@@ -61,7 +67,7 @@ const minSaltLength = 16
 //
 // It returns an error if key or cipher is empty, or if a supplied salt is shorter
 // than minSaltLength bytes.
-func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, []byte, error) {
+func createCryptoConfig(key string, cipher []byte, salt []byte, info []byte) (sio.Config, []byte, error) {
 	if key == "" {
 		return sio.Config{}, nil, errors.New("key is empty")
 	}
@@ -85,7 +91,7 @@ func createCryptoConfig(key string, cipher []byte, salt []byte) (sio.Config, []b
 
 	// Derive the encryption key and the AEAD nonce from a single HKDF stream: the
 	// first 32 bytes are the key, the next 12 are the nonce.
-	kdf := hkdf.New(sha256.New, []byte(key), salt, nil)
+	kdf := hkdf.New(sha256.New, []byte(key), salt, info)
 	var derived [32 + 12]byte
 	if _, err = io.ReadFull(kdf, derived[:]); err != nil {
 		return sio.Config{}, nil, fmt.Errorf("failed to derive key material: %w", err)

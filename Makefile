@@ -41,6 +41,10 @@ example: ## Run the usage example
 example-structs: ## Run the struct encryption example
 	$(GO) run ./examples/structs
 
+.PHONY: example-files
+example-files: ## Run the file encryption example
+	$(GO) run ./examples/files
+
 .PHONY: clean
 clean: ## Remove generated artifacts
 	rm -f $(COVERPROFILE)

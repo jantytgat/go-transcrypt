@@ -3,7 +3,8 @@
 // parameter of Encrypt/Decrypt selects the encryption mode. A string target
 // encrypts a single value into the encoded format; a struct target maps a
 // plain struct onto its encrypted mirror field by field (see structs.go), with
-// a mirror field typed Ciphertext as the encrypted leaf.
+// a mirror field typed Ciphertext as the encrypted leaf; a File target streams
+// a file on disk through the cipher into a binary sibling format (see file.go).
 package transcrypt
 
 import (
@@ -26,11 +27,15 @@ import (
 //   - E is a struct type: E is the encrypted mirror of d's struct type, and
 //     every mirror field typed Ciphertext is encrypted individually (each with
 //     its own salt, derived key and nonce), identical types are copied
-//     verbatim, and mirrored composite types recurse.
+//     verbatim, and mirrored composite types recurse;
+//   - E is File: d must be a File naming the file to encrypt; its content is
+//     streamed through the cipher into File.Target (in place when Target is
+//     empty), and the returned File carries the resolved Target.
 //
 // E appears only in the result, so it is never inferred; calls always name the
 // target explicitly: Encrypt[string](key, suite, 42) for single values,
-// Encrypt[SecureData](key, suite, data) for structs.
+// Encrypt[SecureData](key, suite, data) for structs, Encrypt[File](key, suite,
+// File{Source: path}) for files.
 //
 // It returns an error if the key is shorter than minKeyLength bytes or the
 // data is nil, if the cipher suite is unknown, or if d does not fit the target
@@ -39,6 +44,20 @@ import (
 func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
 	var zero E
 	encType := reflect.TypeOf((*E)(nil)).Elem()
+
+	// File is streaming file encryption, intercepted by concrete type before
+	// the kind switch because File is itself a struct type.
+	if encType == fileType {
+		f, ok := d.(File)
+		if !ok {
+			return zero, fmt.Errorf("encryption target File requires a File value, got %T", d)
+		}
+		out, err := encryptFile(key, cipherSuite, f)
+		if err != nil {
+			return zero, err
+		}
+		return any(out).(E), nil
+	}
 
 	switch encType.Kind() {
 	case reflect.String:
@@ -74,14 +93,31 @@ func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
 //     decrypted value must have P's kind (named types of the same kind are
 //     converted, a kind mismatch is an error);
 //   - P is a struct type: data is the encrypted mirror struct and P the plain
-//     struct to rebuild, with every Ciphertext field decrypted individually.
+//     struct to rebuild, with every Ciphertext field decrypted individually;
+//   - P is File: data must be a File naming the encrypted file; its content is
+//     streamed back into File.Target (in place when Target is empty), and the
+//     returned File carries the resolved Target.
 //
 // Calls name the target explicitly: Decrypt[any](key, s) keeps the stored
 // type, Decrypt[int64](key, s) enforces it, Decrypt[Data](key, secureData)
-// rebuilds a struct.
+// rebuilds a struct, Decrypt[File](key, File{Source: path}) restores a file.
 func Decrypt[P any](key string, data any) (P, error) {
 	var zero P
 	plainType := reflect.TypeOf((*P)(nil)).Elem()
+
+	// File is streaming file decryption, intercepted by concrete type before
+	// the kind switch because File is itself a struct type.
+	if plainType == fileType {
+		f, ok := data.(File)
+		if !ok {
+			return zero, fmt.Errorf("decryption target File requires a File value, got %T", data)
+		}
+		out, err := decryptFile(key, f)
+		if err != nil {
+			return zero, err
+		}
+		return any(out).(P), nil
+	}
 
 	switch plainType.Kind() {
 	case reflect.Interface:
@@ -231,7 +267,7 @@ func encryptScalar(key string, cipherSuite CipherSuite, d any) (string, error) {
 	// return it so it can be stored; the AEAD nonce is derived from it.
 	var cryptoConfig sio.Config
 	var salt []byte
-	if cryptoConfig, salt, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil); err != nil {
+	if cryptoConfig, salt, err = createCryptoConfig(key, []byte{byte(cipherSuite)}, nil, nil); err != nil {
 		return "", err
 	}
 
