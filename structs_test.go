@@ -328,6 +328,63 @@ func TestStructTopLevelValidation(t *testing.T) {
 	if _, err := Decrypt[string](testKey, E{}); err == nil {
 		t.Error("expected error when decrypting a struct into a string target")
 	}
+	// A target identical to the input type would copy the value verbatim — a
+	// silent no-op that looks like a successful operation — so it is rejected.
+	if _, err := Encrypt[P](testKey, AES_256_GCM, P{A: "x"}); err == nil {
+		t.Error("expected error when the encryption target equals the plain type")
+	}
+	if _, err := Decrypt[E](testKey, E{A: "x"}); err == nil {
+		t.Error("expected error when the decryption target equals the encrypted type")
+	}
+}
+
+func TestStructCyclicValueFails(t *testing.T) {
+	type PNode struct {
+		Note string
+		Next *PNode
+	}
+	type ENode struct {
+		Note Ciphertext
+		Next *ENode
+	}
+
+	// A cycle through a pointer must fail with an error instead of recursing
+	// until the stack overflows.
+	cyclic := &PNode{Note: "a"}
+	cyclic.Next = cyclic
+	if _, err := Encrypt[ENode](testKey, AES_256_GCM, *cyclic); err == nil {
+		t.Error("expected error for cyclic plain value")
+	}
+
+	// A diamond — the same pointer reached twice on separate paths — is not a
+	// cycle and must still round-trip.
+	type PDiamond struct {
+		Left  *PNode
+		Right *PNode
+	}
+	type EDiamond struct {
+		Left  *ENode
+		Right *ENode
+	}
+	shared := &PNode{Note: "shared"}
+	enc, err := Encrypt[EDiamond](testKey, AES_256_GCM, PDiamond{Left: shared, Right: shared})
+	if err != nil {
+		t.Fatalf("diamond encrypt failed: %v", err)
+	}
+	dec, err := Decrypt[PDiamond](testKey, enc)
+	if err != nil {
+		t.Fatalf("diamond decrypt failed: %v", err)
+	}
+	if dec.Left.Note != "shared" || dec.Right.Note != "shared" {
+		t.Errorf("diamond round-trip mismatch: %+v", dec)
+	}
+
+	// The decrypt walker has the same guard for cyclic encrypted values.
+	cyclicEnc := &ENode{Note: enc.Left.Note}
+	cyclicEnc.Next = cyclicEnc
+	if _, err = Decrypt[PNode](testKey, *cyclicEnc); err == nil {
+		t.Error("expected error for cyclic encrypted value")
+	}
 }
 
 func TestStructShortKeyFails(t *testing.T) {

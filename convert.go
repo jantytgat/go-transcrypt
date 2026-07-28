@@ -15,10 +15,11 @@ import (
 
 // Defines the default layout of a string representing encrypted data.
 // The string is divided in sections delimited by a colon.
-// 1. Cipher suite  - one hex-encoded byte (2 lowercase hex chars, e.g. "0a")
-// 2. Salt          - 32 hex-encoded bytes (64 lowercase hex chars); the HKDF salt
-//                    from which both the encryption key and the AEAD nonce derive
-// 3. Data          - hex-encoded ciphertext (non-empty)
+//  1. Cipher suite  - one hex-encoded byte (2 lowercase hex chars, e.g. "0a")
+//  2. Salt          - 32 hex-encoded bytes (64 lowercase hex chars); the HKDF salt
+//     from which both the encryption key and the AEAD nonce derive
+//  3. Data          - hex-encoded ciphertext (non-empty)
+//
 // The pattern is anchored so the whole string must match, every field must be
 // valid lowercase hex, and the ciphertext field may not be empty. The original
 // type is no longer a separate field: it is carried inside the authenticated
@@ -230,6 +231,12 @@ func decodeHexString(key string, data string) ([]byte, sio.Config, error) {
 	var cipherSuiteBytes []byte
 	if cipherSuiteBytes, err = hex.DecodeString(split[0]); err != nil {
 		return nil, sio.Config{}, fmt.Errorf("cannot decode ciphersuite: %w", err)
+	}
+	// The suite byte is the only field outside the AEAD, so reject an unknown
+	// value here with a clear error (matching decryptFile) instead of letting it
+	// fail deep inside sio. The regex guarantees exactly one byte.
+	if !CipherSuite(cipherSuiteBytes[0]).isValid() {
+		return nil, sio.Config{}, fmt.Errorf("unknown cipher suite: %d", cipherSuiteBytes[0])
 	}
 
 	var salt []byte

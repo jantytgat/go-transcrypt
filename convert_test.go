@@ -191,6 +191,17 @@ func Test_decodeHexString(t *testing.T) {
 			wantErr:  true,
 		},
 		{
+			// Valid hex, but not a known CipherSuite value: rejected before any
+			// key derivation happens.
+			name: "unknown_ciphersuite",
+			args: args{
+				key:  string(decodedHexKey),
+				data: "ff:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
+			},
+			wantData: nil,
+			wantErr:  true,
+		},
+		{
 			name: "invalid_value_salt",
 			args: args{
 				key:  string(decodedHexKey),

@@ -102,7 +102,14 @@ func createCryptoConfig(key string, cipher []byte, salt []byte, info []byte) (si
 	copy(encKey[:], derived[:32])
 	copy(nonce[:], derived[32:])
 
+	// Pin both directions to DARE 2.0. sio's default accepts legacy 1.0 streams
+	// on decrypt, but 1.0 lacks the final-package flag, so a 1.0 stream could be
+	// truncated at a package boundary undetected. This library has only ever
+	// emitted 2.0 (sio encrypts at MaxVersion, defaulting to 2.0), so rejecting
+	// 1.0 costs no compatibility.
 	return sio.Config{
+		MinVersion:   sio.Version20,
+		MaxVersion:   sio.Version20,
 		CipherSuites: cipher,
 		Key:          encKey[:],
 		Nonce:        &nonce,

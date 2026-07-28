@@ -7,8 +7,9 @@ import (
 
 // decryptValue transforms an encrypted value back into the plain type
 // plainType, mirroring encryptValue: Ciphertext leaves decrypt, identical
-// types copy verbatim, and matching composite kinds recurse.
-func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path string) (reflect.Value, error) {
+// types copy verbatim, and matching composite kinds recurse. visiting guards
+// against cyclic values exactly as in encryptValue; callers pass nil.
+func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
 	if enc.Type() == plainType {
 		return enc, nil
 	}
@@ -23,14 +24,14 @@ func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path st
 
 	switch enc.Kind() {
 	case reflect.Struct:
-		return decryptStruct(key, enc, plainType, path)
+		return decryptStruct(key, enc, plainType, path, visiting)
 	case reflect.Slice:
 		if enc.IsNil() {
 			return reflect.Zero(plainType), nil
 		}
 		out := reflect.MakeSlice(plainType, enc.Len(), enc.Len())
 		for i := 0; i < enc.Len(); i++ {
-			elem, err := decryptValue(key, enc.Index(i), plainType.Elem(), joinPath(path, indexPath(i)))
+			elem, err := decryptValue(key, enc.Index(i), plainType.Elem(), joinPath(path, indexPath(i)), visiting)
 			if err != nil {
 				return reflect.Value{}, err
 			}
@@ -43,7 +44,7 @@ func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path st
 		}
 		out := reflect.New(plainType).Elem()
 		for i := 0; i < enc.Len(); i++ {
-			elem, err := decryptValue(key, enc.Index(i), plainType.Elem(), joinPath(path, indexPath(i)))
+			elem, err := decryptValue(key, enc.Index(i), plainType.Elem(), joinPath(path, indexPath(i)), visiting)
 			if err != nil {
 				return reflect.Value{}, err
 			}
@@ -60,7 +61,7 @@ func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path st
 		out := reflect.MakeMapWithSize(plainType, enc.Len())
 		iter := enc.MapRange()
 		for iter.Next() {
-			elem, err := decryptValue(key, iter.Value(), plainType.Elem(), joinPath(path, keyPath(iter.Key())))
+			elem, err := decryptValue(key, iter.Value(), plainType.Elem(), joinPath(path, keyPath(iter.Key())), visiting)
 			if err != nil {
 				return reflect.Value{}, err
 			}
@@ -71,7 +72,16 @@ func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path st
 		if enc.IsNil() {
 			return reflect.Zero(plainType), nil
 		}
-		elem, err := decryptValue(key, enc.Elem(), plainType.Elem(), path)
+		ptr := enc.Pointer()
+		if visiting[ptr] {
+			return reflect.Value{}, pathErrorf(path, "cannot decrypt cyclic value: pointer already visited on this path")
+		}
+		if visiting == nil {
+			visiting = make(map[uintptr]bool)
+		}
+		visiting[ptr] = true
+		elem, err := decryptValue(key, enc.Elem(), plainType.Elem(), path, visiting)
+		delete(visiting, ptr)
 		if err != nil {
 			return reflect.Value{}, err
 		}
@@ -103,7 +113,7 @@ func decryptLeaf(key string, enc reflect.Value, plainType reflect.Type, path str
 // decryptStruct maps every exported field of the encrypted struct onto the
 // field with the same name in the plain struct, with the same strict
 // two-directional matching as encryptStruct.
-func decryptStruct(key string, enc reflect.Value, plainType reflect.Type, path string) (reflect.Value, error) {
+func decryptStruct(key string, enc reflect.Value, plainType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
 	encType := enc.Type()
 	encFields := exportedFieldIndex(encType)
 
@@ -119,7 +129,7 @@ func decryptStruct(key string, enc reflect.Value, plainType reflect.Type, path s
 		}
 		delete(encFields, plainField.Name)
 
-		fieldValue, err := decryptValue(key, enc.Field(encIndex), plainField.Type, joinPath(path, plainField.Name))
+		fieldValue, err := decryptValue(key, enc.Field(encIndex), plainField.Type, joinPath(path, plainField.Name), visiting)
 		if err != nil {
 			return reflect.Value{}, err
 		}

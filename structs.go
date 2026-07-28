@@ -24,7 +24,9 @@ package transcrypt
 // sides (like encoding/json); anonymous (embedded) fields are matched by their
 // type name, so embedding is only supported when both sides embed a type with
 // the same name. Nil pointers, slices and maps are preserved as nil. Map keys
-// are never encrypted, only map values.
+// are never encrypted, only map values — and because error messages carry the
+// field path, map keys can appear verbatim in errors (and thus in logs), so
+// keys should never hold sensitive data.
 
 import (
 	"fmt"
