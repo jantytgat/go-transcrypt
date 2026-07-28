@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jantytgat/go-transcrypt/pkg/transcrypt"
+	"github.com/jantytgat/go-transcrypt"
 )
 
 // Account is the plain struct as the application uses it.

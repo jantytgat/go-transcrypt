@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jantytgat/go-transcrypt/pkg/transcrypt"
+	"github.com/jantytgat/go-transcrypt"
 )
 
 func main() {

@@ -6,29 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `go-transcrypt` is a small Go library that encrypts arbitrary values into a single hex-encoded, colon-delimited string safe for on-disk storage, and decrypts that string back to the original typed value. Authenticated encryption is delegated to `github.com/minio/sio`; key derivation uses HKDF-SHA256 from `golang.org/x/crypto`.
 
-The public API lives in a single package, `pkg/transcrypt`, and consists of one generic `Encrypt[E]`/`Decrypt[P]` pair: the type parameter selects the encryption mode (string-kind target → single value, struct target → mirror-struct field encryption, `File` target → streaming file encryption). There is no binary — `examples/simple/main.go`, `examples/structs/main.go` and `examples/files/main.go` are runnable usage demos, not part of the module's product surface.
+The public API lives in a single package at the repository root (import path `github.com/jantytgat/go-transcrypt`), and consists of one generic `Encrypt[E]`/`Decrypt[P]` pair: the type parameter selects the encryption mode (string-kind target → single value, struct target → mirror-struct field encryption, `File` target → streaming file encryption). There is no binary — `examples/simple/main.go`, `examples/structs/main.go` and `examples/files/main.go` are runnable usage demos, not part of the module's product surface.
 
 ## Commands
 
 ```bash
 go build ./...                                    # build
 go test ./...                                     # run all tests
-go test ./pkg/transcrypt/                         # test the package
-go test -run TestEncrypt ./pkg/transcrypt/        # run a single test by name
-go test -v -cover ./pkg/transcrypt/               # verbose + coverage
+go test .                                         # test the package
+go test -run TestEncrypt .                        # run a single test by name
+go test -v -cover .                               # verbose + coverage
 go vet ./...                                       # vet
 go run ./examples/simple                          # run the usage example
 ```
 
 A `Makefile` wraps the common targets: `make test` (race), `make coverage`
-(func report, scoped to `./pkg/transcrypt/`), `make example`, `make vet`,
-`make build`, `make coverage-html`, and `make help`.
+(func report), `make example`, `make vet`, `make build`, `make coverage-html`,
+and `make help`.
 
 CI runs `go vet` + `go test -race -cover` on push/PR to `main` (`.github/workflows/test.yml`) and CodeQL security analysis (`.github/workflows/codeql.yml`). Still run `go test ./...` locally before pushing.
 
 ## Architecture
 
-The round-trip flows through four files in `pkg/transcrypt`, split by responsibility:
+The round-trip flows through four files at the repository root, split by responsibility:
 
 - **`transcrypt.go`** — the public generic `Encrypt[E]`/`Decrypt[P]` entry points, which dispatch on the type parameter's kind, plus the single-value implementations `encryptScalar`/`decryptScalar` they and the struct walkers share. Both entry points first intercept `E`/`P` == `File` by concrete type (before the kind switch — `File` is itself a struct) and route to the file streaming path. `Encrypt[E]` otherwise accepts a string-kind `E` (encoded-string result, converted to `E` — so `Encrypt[Ciphertext]` works) or a struct `E` (mirror encryption); anything else, including `Encrypt[any]`, is an error. `Decrypt[P]` accepts an interface `P` (returns the stored type as-is), a struct `P` (mirror decryption), or any other concrete `P` (typed single value, fitted via `fitValue`: exact type or same-kind conversion, cross-kind is an error). Single-value decryption accepts any string-kind input (`string`, `Ciphertext`, ...). The type parameter appears only in the result position, so it is never inferred — every call names it explicitly.
 - **`crypto.go`** — key generation (`CreateHexKey`) and `createCryptoConfig`, which generates/consumes the nonce, HKDF-derives a 32-byte key, and builds the `sio.Config`. Its `info` parameter domain-separates the container formats: the string format passes `nil` (compatibility with existing ciphertext), the file format passes `fileHKDFInfo`. Also holds `getKindForString` (string → `reflect.Kind`).
