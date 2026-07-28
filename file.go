@@ -87,7 +87,7 @@ func (f File) resolve() (File, error) {
 // encryptFile streams the file at f.Source into an encrypted file at f.Target.
 // It enforces the same key floor as encryptScalar and returns the File with
 // its resolved Target.
-func encryptFile(key string, cipherSuite CipherSuite, f File) (File, error) {
+func encryptFile(key []byte, cipherSuite CipherSuite, f File) (File, error) {
 	if len(key) < minKeyLength {
 		return File{}, fmt.Errorf("key must be at least %d bytes", minKeyLength)
 	}
@@ -135,8 +135,8 @@ func encryptFile(key string, cipherSuite CipherSuite, f File) (File, error) {
 // authenticates the final DARE package only at end of stream, so success is
 // known only once the whole file has been processed — which is why the result
 // reaches Target exclusively via transformFile's rename-on-success.
-func decryptFile(key string, f File) (File, error) {
-	if key == "" {
+func decryptFile(key []byte, f File) (File, error) {
+	if len(key) == 0 {
 		return File{}, errors.New("key is empty")
 	}
 
@@ -217,6 +217,13 @@ func transformFile(f File, transform func(src, dst *os.File) error) (err error) 
 	var tmp *os.File
 	if tmp, err = os.CreateTemp(filepath.Dir(f.Target), ".transcrypt-*"); err != nil {
 		return fmt.Errorf("cannot create temporary file: %w", err)
+	}
+	// Apply restrictive permissions immediately so encrypted data is never
+	// world-readable, even if the source file had permissive mode.
+	if err = tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return fmt.Errorf("cannot secure temporary file: %w", err)
 	}
 	defer func() {
 		if err != nil {

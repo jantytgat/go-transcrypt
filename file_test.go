@@ -10,8 +10,16 @@ import (
 )
 
 // testKey is a fixed key long enough for minKeyLength; file tests never need
-// fresh entropy for the key itself.
-const fileTestKey = "0123456789abcdef0123456789abcdef"
+// fresh entropy for the key itself. Stored as hex for readability; decoded at init.
+var fileTestKey []byte
+
+func init() {
+	raw, err := hex.DecodeString("0123456789abcdef0123456789abcdef")
+	if err != nil {
+		panic(err)
+	}
+	fileTestKey = raw
+}
 
 // writeTestFile creates a file with the given content and permissions inside
 // dir and returns its path.
@@ -234,7 +242,7 @@ func Test_FileDecrypt_FailureLeavesTargetIntact(t *testing.T) {
 
 	// In-place decryption with the wrong key must fail and leave the encrypted
 	// file exactly as it was.
-	if _, err = Decrypt[File]("another-key-thats-wrong", File{Source: path}); err == nil {
+	if _, err = Decrypt[File]([]byte("another-key-thats-wrong"), File{Source: path}); err == nil {
 		t.Fatalf("Decrypt[File]() succeeded with the wrong key")
 	}
 	after, err := os.ReadFile(path)
@@ -257,7 +265,7 @@ func Test_File_Errors(t *testing.T) {
 		}
 	})
 	t.Run("encrypt_short_key", func(t *testing.T) {
-		if _, err := Encrypt[File]("short", AES_256_GCM, File{Source: plain}); err == nil {
+		if _, err := Encrypt[File]([]byte("short"), AES_256_GCM, File{Source: plain}); err == nil {
 			t.Errorf("Encrypt[File]() with short key did not fail")
 		}
 	})
@@ -282,7 +290,7 @@ func Test_File_Errors(t *testing.T) {
 		}
 	})
 	t.Run("decrypt_empty_key", func(t *testing.T) {
-		if _, err := Decrypt[File]("", File{Source: plain}); err == nil {
+		if _, err := Decrypt[File](nil, File{Source: plain}); err == nil {
 			t.Errorf("Decrypt[File]() with empty key did not fail")
 		}
 	})

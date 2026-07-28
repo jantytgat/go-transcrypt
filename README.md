@@ -28,18 +28,21 @@ import "github.com/jantytgat/go-transcrypt"
 
 ### Encryption key
 
-The encryption key is a string used to encrypt the data with. `Encrypt` requires it
+The encryption key is a `[]byte` used to encrypt the data with. `Encrypt` requires it
 to be at least 16 bytes; HKDF stretches the key but cannot add entropy, so a short
 key would weaken every ciphertext.
-A function `CreateHexKey(byteSize int)` is available to create a random key from `byteSize`
-cryptographically secure random bytes (minimum 16), returned as a hex-encoded string.
+A function `CreateKey(byteSize int)` is available to create a random key from `byteSize`
+cryptographically secure random bytes (minimum 16). The key is returned as raw bytes
+so it can be zeroed with `ClearKey(key)` when no longer needed. For storage or
+display, hex-encode it: `hex.EncodeToString(key)`.
 
 ```go
 var err error
-var key string
-if key, err = transcrypt.CreateHexKey(32); err != nil {
+var key []byte
+if key, err = transcrypt.CreateKey(32); err != nil {
 	panic(err)
 }
+defer transcrypt.ClearKey(key)
 ```
 
 ### Salt and nonce

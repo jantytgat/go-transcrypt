@@ -9,7 +9,7 @@ import (
 // plainType, mirroring encryptValue: Ciphertext leaves decrypt, identical
 // types copy verbatim, and matching composite kinds recurse. visiting guards
 // against cyclic values exactly as in encryptValue; callers pass nil.
-func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
+func decryptValue(key []byte, enc reflect.Value, plainType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
 	if enc.Type() == plainType {
 		return enc, nil
 	}
@@ -97,7 +97,7 @@ func decryptValue(key string, enc reflect.Value, plainType reflect.Type, path st
 // plain field's type via fitValue: the value's kind comes from inside the
 // authenticated ciphertext, so a ciphertext cannot be relabeled into a field
 // of a different kind.
-func decryptLeaf(key string, enc reflect.Value, plainType reflect.Type, path string) (reflect.Value, error) {
+func decryptLeaf(key []byte, enc reflect.Value, plainType reflect.Type, path string) (reflect.Value, error) {
 	decrypted, err := decryptScalar(key, enc.String())
 	if err != nil {
 		return reflect.Value{}, pathErrorf(path, "decrypt failed: %w", err)
@@ -113,7 +113,7 @@ func decryptLeaf(key string, enc reflect.Value, plainType reflect.Type, path str
 // decryptStruct maps every exported field of the encrypted struct onto the
 // field with the same name in the plain struct, with the same strict
 // two-directional matching as encryptStruct.
-func decryptStruct(key string, enc reflect.Value, plainType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
+func decryptStruct(key []byte, enc reflect.Value, plainType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
 	encType := enc.Type()
 	encFields := exportedFieldIndex(encType)
 

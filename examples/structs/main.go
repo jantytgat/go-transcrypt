@@ -44,7 +44,7 @@ type SecurePerson struct {
 }
 
 func main() {
-	key, err := transcrypt.CreateHexKey(32)
+	key, err := transcrypt.CreateKey(32)
 	if err != nil {
 		panic(err)
 	}

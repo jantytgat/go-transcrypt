@@ -212,8 +212,8 @@ func convertValueToHexString(v reflect.Value) (string, error) {
 // returned here: it lives inside the authenticated ciphertext and is recovered
 // only after decryption (see decodeInnerPayload).
 // It returns an error if the data string is empty or invalid, or any of the steps to get the encrypted data fails.
-func decodeHexString(key string, data string) ([]byte, sio.Config, error) {
-	if key == "" {
+func decodeHexString(key []byte, data string) ([]byte, sio.Config, error) {
+	if len(key) == 0 {
 		return nil, sio.Config{}, fmt.Errorf("key is empty")
 	}
 	if data == "" {

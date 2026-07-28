@@ -7,7 +7,7 @@ import (
 
 func TestDecrypt(t *testing.T) {
 	type args struct {
-		key  string
+		key  []byte
 		data string
 	}
 	tests := []struct {
@@ -19,7 +19,7 @@ func TestDecrypt(t *testing.T) {
 		{
 			name: "empty_key",
 			args: args{
-				key:  "",
+				key:  nil,
 				data: "",
 			},
 			want:    nil,
@@ -28,7 +28,7 @@ func TestDecrypt(t *testing.T) {
 		{
 			name: "empty_data",
 			args: args{
-				key:  "key",
+				key:  []byte("key"),
 				data: "",
 			},
 			want:    nil,
@@ -37,7 +37,7 @@ func TestDecrypt(t *testing.T) {
 		{
 			name: "invalid_data",
 			args: args{
-				key:  "key",
+				key:  []byte("key"),
 				data: "invalid_data",
 			},
 			want:    "hello world",
@@ -46,7 +46,7 @@ func TestDecrypt(t *testing.T) {
 		{
 			name: "invalid_key",
 			args: args{
-				key:  "key",
+				key:  []byte("key"),
 				data: "00:5a412cac418ecf54f86c0da4:20001500da412cac418ecf54f86c0da472bb69380c4abb66a0f8542e4b147d01fa503589bb4e3a37c2e2f979d4721da17397089d1477:737472696e67",
 			},
 			want:    "hello world",
@@ -55,8 +55,8 @@ func TestDecrypt(t *testing.T) {
 		{
 			name: "valid_string",
 			args: args{
-				key:  "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
-				data: "00:1dd908719ff16e1f5d701e97f3a0345ac08d888a24080b50482108a5ae85a4e8:20001c00aa2c6d981e121c07b6e2ee3f259b1c63e4a52bb6838b8aa300adc075b5f074a02d5ca88c0c8c658f5fb0aa09f4ffe9bc6e9c27166c4af8135f",
+				key:  testKey,
+				data: "00:616734a069f0cebeabfb905dff7c3d1637139cf8d8381230b6fa691eea783390:20001c0098c2bc63f2bfc02c8600d6380113c530ad902181ff8da69aacbd2510d2013da18dfc0b509bf46bd18e14f2f93b92a8a8b0bbf83e09581b3012",
 			},
 			want:    "hello world",
 			wantErr: false,
@@ -64,8 +64,8 @@ func TestDecrypt(t *testing.T) {
 		{
 			name: "valid_int",
 			args: args{
-				key:  "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
-				data: "00:10c26724d88604f99d29f2882bf2177c028ffeece92656004da06f8fc0263242:20001300cd7cb3d924d15379607a23ee1dd3edb91f5cec25fb7fdadbc4357df92d68a924719a1306afaa9e5c50732b3f03b9ea74",
+				key:  testKey,
+				data: "00:4bbe6ff7011dcb0a75370bb6caf5a8c0b1e166effbe1e841b391c9ae5f1ed600:20001300e4d8db67265310571fa78b1de79b9e87fefd9b7e7b1f0ba1b65888dd928d927267bd789a9b8a99b5aacbecf78819f2fa",
 			},
 			want:    123456,
 			wantErr: false,
@@ -90,7 +90,7 @@ func TestDecrypt(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	type args struct {
-		key         string
+		key         []byte
 		cipherSuite CipherSuite
 		d           any
 	}
@@ -102,7 +102,7 @@ func TestEncrypt(t *testing.T) {
 		{
 			name: "empty_key",
 			args: args{
-				key:         "",
+				key:         nil,
 				cipherSuite: AES_256_GCM,
 				d:           nil,
 			},
@@ -112,7 +112,7 @@ func TestEncrypt(t *testing.T) {
 			name: "short_key",
 			args: args{
 				// 15 bytes: one short of the minimum.
-				key:         "0123456789abcde",
+				key:         []byte("0123456789abcde"),
 				cipherSuite: AES_256_GCM,
 				d:           "hello world",
 			},
@@ -148,7 +148,7 @@ func TestEncrypt(t *testing.T) {
 		{
 			name: "valid",
 			args: args{
-				key:         "2d2d2d2d2d424547494e205253412050524956415445204b45592d2d2d2d2d0a4d423843415141434167773341674d42414145434167635a41674537416745314167455441674578416745780a2d2d2d2d2d454e44205253412050524956415445204b45592d2d2d2d2d0a",
+				key:         testKey,
 				cipherSuite: AES_256_GCM,
 				d:           "hello world",
 			},

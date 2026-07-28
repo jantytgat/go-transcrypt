@@ -14,8 +14,11 @@ import (
 // (only reachable through a pointer) fails with an error instead of recursing
 // forever. It is nil until the first pointer is followed; callers pass nil.
 // Pointers are removed on the way back up, so a shared (diamond) substructure
-// is not mistaken for a cycle.
-func encryptValue(key string, cipherSuite CipherSuite, plain reflect.Value, encType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
+// is not mistaken for a cycle. Storing bare uintptr addresses is safe against
+// GC address reuse: an address stays in the map only for the duration of the
+// recursive call, and the reflect.Value passed into that call keeps the
+// pointed-to object alive.
+func encryptValue(key []byte, cipherSuite CipherSuite, plain reflect.Value, encType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
 	// Identical types are copied verbatim. This is checked before the
 	// Ciphertext leaf case so a Ciphertext-typed field appearing on both
 	// sides is copied, not encrypted a second time.
@@ -109,7 +112,7 @@ func encryptValue(key string, cipherSuite CipherSuite, plain reflect.Value, encT
 // encryptStruct maps every exported field of the plain struct onto the field
 // with the same name in the encrypted struct. Matching is strict in both
 // directions so no exported field can be dropped silently.
-func encryptStruct(key string, cipherSuite CipherSuite, plain reflect.Value, encType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
+func encryptStruct(key []byte, cipherSuite CipherSuite, plain reflect.Value, encType reflect.Type, path string, visiting map[uintptr]bool) (reflect.Value, error) {
 	plainType := plain.Type()
 	plainFields := exportedFieldIndex(plainType)
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func Test_CreateHexKey(t *testing.T) {
+func Test_CreateKey(t *testing.T) {
 	tests := []struct {
 		name     string
 		byteSize int
@@ -34,17 +34,16 @@ func Test_CreateHexKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key, err := CreateHexKey(tt.byteSize)
+			key, err := CreateKey(tt.byteSize)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateHexKey() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CreateKey() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr {
 				return
 			}
-			// hex-encoding doubles the byte count.
-			if len(key) != tt.byteSize*2 {
-				t.Errorf("CreateHexKey() len = %d, want %d", len(key), tt.byteSize*2)
+			if len(key) != tt.byteSize {
+				t.Errorf("CreateKey() len = %d, want %d", len(key), tt.byteSize)
 			}
 		})
 	}
@@ -52,7 +51,7 @@ func Test_CreateHexKey(t *testing.T) {
 
 func Test_createCryptoConfig(t *testing.T) {
 	type args struct {
-		key    string
+		key    []byte
 		cipher []byte
 		salt   []byte
 	}
@@ -64,7 +63,7 @@ func Test_createCryptoConfig(t *testing.T) {
 		{
 			name: "empty_key",
 			args: args{
-				key:    "",
+				key:    nil,
 				cipher: []byte("cipher"),
 				salt:   nil,
 			},
@@ -73,7 +72,7 @@ func Test_createCryptoConfig(t *testing.T) {
 		{
 			name: "empty_cipher",
 			args: args{
-				key:    "test",
+				key:    []byte("test"),
 				cipher: nil,
 				salt:   nil,
 			},
@@ -82,7 +81,7 @@ func Test_createCryptoConfig(t *testing.T) {
 		{
 			name: "short_salt",
 			args: args{
-				key:    "test",
+				key:    []byte("test"),
 				cipher: []byte("cipher"),
 				salt:   []byte("short"),
 			},
@@ -91,7 +90,7 @@ func Test_createCryptoConfig(t *testing.T) {
 		{
 			name: "valid_generated_salt",
 			args: args{
-				key:    "test",
+				key:    []byte("test"),
 				cipher: []byte("cipher"),
 				salt:   nil,
 			},

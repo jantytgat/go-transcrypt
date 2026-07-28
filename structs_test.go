@@ -275,7 +275,7 @@ func TestStructWrongKeyFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
-	if _, err = Decrypt[Outer]("ffffffffffffffffffffffffffffffff", enc); err == nil {
+	if _, err = Decrypt[Outer]([]byte("ffffffffffffffffffffffffffffffff"), enc); err == nil {
 		t.Error("expected decrypt with wrong key to fail")
 	}
 }
@@ -391,7 +391,7 @@ func TestStructShortKeyFails(t *testing.T) {
 	type P struct{ A string }
 	type E struct{ A Ciphertext }
 
-	if _, err := Encrypt[E]("short", AES_256_GCM, P{A: "x"}); err == nil {
+	if _, err := Encrypt[E]([]byte("short"), AES_256_GCM, P{A: "x"}); err == nil {
 		t.Error("expected error for key below the encryption minimum")
 	}
 }

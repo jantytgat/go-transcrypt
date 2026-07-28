@@ -151,7 +151,7 @@ func Test_convertValueToHexString(t *testing.T) {
 
 func Test_decodeHexString(t *testing.T) {
 	type args struct {
-		key  string
+		key  []byte
 		data string
 	}
 
@@ -166,7 +166,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "empty_key",
 			args: args{
-				key:  "",
+				key:  nil,
 				data: "",
 			},
 			wantData: nil,
@@ -175,7 +175,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "empty_data",
 			args: args{
-				key:  string(decodedHexKey),
+				key:  decodedHexKey,
 				data: "",
 			},
 			wantData: nil,
@@ -184,7 +184,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "invalid_value_ciphersuite",
 			args: args{
-				key:  string(decodedHexKey),
+				key:  decodedHexKey,
 				data: "__:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
@@ -195,7 +195,7 @@ func Test_decodeHexString(t *testing.T) {
 			// key derivation happens.
 			name: "unknown_ciphersuite",
 			args: args{
-				key:  string(decodedHexKey),
+				key:  decodedHexKey,
 				data: "ff:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
@@ -204,7 +204,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "invalid_value_salt",
 			args: args{
-				key:  string(decodedHexKey),
+				key:  decodedHexKey,
 				data: "00:__:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
@@ -213,7 +213,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "invalid_value_data",
 			args: args{
-				key:  string(decodedHexKey),
+				key:  decodedHexKey,
 				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:__",
 			},
 			wantData: nil,
@@ -222,7 +222,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "invalid_ciphersuite",
 			args: args{
-				key: string(decodedHexKey),
+				key: decodedHexKey,
 				// Cipher-suite field must be exactly two hex chars; one char fails the format regex.
 				data: "0:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
@@ -232,7 +232,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "invalid_salt",
 			args: args{
-				key: string(decodedHexKey),
+				key: decodedHexKey,
 				// Salt field must be exactly 64 hex chars (32 bytes); 66 chars fails the format regex.
 				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
@@ -242,7 +242,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "invalid_data",
 			args: args{
-				key: string(decodedHexKey),
+				key: decodedHexKey,
 				// Ciphertext field passes the format regex but is odd-length hex, so hex decoding fails.
 				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:abc",
 			},
@@ -252,7 +252,7 @@ func Test_decodeHexString(t *testing.T) {
 		{
 			name: "valid",
 			args: args{
-				key:  string(decodedHexKey),
+				key:  decodedHexKey,
 				data: "00:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff:20001500e8e191dfc1f3180904d19a589d6c41d057473145672f5e7a90b1fa1d47b21ece952eafbbfa38668f2885b323179721bc10a5",
 			},
 			wantData: nil,
