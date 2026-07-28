@@ -83,7 +83,7 @@ func Encrypt[E any](key string, cipherSuite CipherSuite, d any) (E, error) {
 		if plainValue.Type() == encType {
 			return zero, fmt.Errorf("encryption target %s is the plain type itself: nothing would be encrypted; use a mirror struct with Ciphertext fields", encType)
 		}
-		out, err := encryptValue(key, cipherSuite, plainValue, encType, "")
+		out, err := encryptValue(key, cipherSuite, plainValue, encType, "", nil)
 		if err != nil {
 			return zero, err
 		}
@@ -156,7 +156,7 @@ func Decrypt[P any](key string, data any) (P, error) {
 		if encValue.Type() == plainType {
 			return zero, fmt.Errorf("decryption target %s is the encrypted type itself: nothing would be decrypted; use the plain mirror struct", plainType)
 		}
-		out, err := decryptValue(key, encValue, plainType, "")
+		out, err := decryptValue(key, encValue, plainType, "", nil)
 		if err != nil {
 			return zero, err
 		}
