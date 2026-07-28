@@ -45,6 +45,11 @@ if key, err = transcrypt.CreateKey(32); err != nil {
 defer transcrypt.ClearKey(key)
 ```
 
+Migrating from the old string-key API: pass `[]byte(oldStringKey)` and existing
+ciphertext stays readable. The string-key versions fed the string's bytes to HKDF,
+so the derived key is identical — this holds for any string key, including keys
+produced by the former `CreateHexKey`.
+
 ### Salt and nonce
 
 No salt or nonce needs to be supplied. `Encrypt` generates a fresh random 256-bit
